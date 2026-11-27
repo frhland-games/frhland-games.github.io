@@ -52,6 +52,10 @@ canvas { display:block; width:100%; touch-action:none; user-select:none; -webkit
 .legend { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; font-size:12px; color:var(--ink2); margin-top:8px; }
 .legend span { display:inline-flex; align-items:center; gap:4px; }
 .dot { width:12px; height:12px; border-radius:4px; display:inline-block; }
+body.fs-pseudo { overflow:hidden; }
+body.fs-pseudo .card { position:fixed; inset:0; max-width:none; z-index:999; overflow-y:auto; min-height:0; }
+.card:fullscreen { max-width:none; overflow-y:auto; }
+body.fs-pseudo .stage, .card:fullscreen .stage { max-width:min(100%, 62vh); margin:0 auto; }
 </style>
 </head>
 <body>
@@ -101,6 +105,7 @@ canvas { display:block; width:100%; touch-action:none; user-select:none; -webkit
     </div>
     <div class="controls">
         <button type="button" class="btn" id="btnMute3">🔊 الصوت</button>
+        <button type="button" class="btn" id="btnFs">⛶ ملء الشاشة</button>
         <button type="button" class="btn" id="btnHome2">🏠 القائمة</button>
     </div>
     <div class="hintline">الجدران والذيل يُنهون الجولة. البوابات الزرقاء والبنفسجية تنقلك فوراً.<br>تقدّمك في المستويات يُحفظ على جهازك.</div>
@@ -666,6 +671,41 @@ function goHome() {
 }
 document.getElementById('btnHome').addEventListener('click', goHome);
 document.getElementById('btnHome2').addEventListener('click', goHome);
+
+// ---------- fullscreen ----------
+function isFs() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+function pseudoFs() { return document.body.classList.contains('fs-pseudo'); }
+function syncFs() {
+    var on = isFs() || pseudoFs();
+    var b = document.getElementById('btnFs');
+    if (b) b.textContent = on ? '✕ خروج' : '⛶ ملء الشاشة';
+    setTimeout(resize, 60);
+    setTimeout(resize, 350);
+}
+function pseudoSet(on) { document.body.classList.toggle('fs-pseudo', on); syncFs(); }
+function toggleFs() {
+    sClick();
+    if (pseudoFs()) { pseudoSet(false); return; }
+    if (isFs()) {
+        try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) { /* ignore */ }
+        return;
+    }
+    var card = document.querySelector('.card');
+    var ok = false;
+    try {
+        if (card.requestFullscreen) {
+            var r = card.requestFullscreen();
+            ok = true;
+            if (r && r.catch) r.catch(function () { pseudoSet(true); });
+        } else if (card.webkitRequestFullscreen) { card.webkitRequestFullscreen(); ok = true; }
+    } catch (e) { ok = false; }
+    if (!ok) pseudoSet(true);
+    else setTimeout(function () { if (!isFs() && !pseudoFs()) pseudoSet(true); }, 600);
+    syncFs();
+}
+document.getElementById('btnFs').addEventListener('click', toggleFs);
+document.addEventListener('fullscreenchange', syncFs);
+document.addEventListener('webkitfullscreenchange', syncFs);
 
 // test hook (harmless): deterministic control for automated play-testing
 window.__snakeTest = {
