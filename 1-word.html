@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>خمّن الكلمة</title>
+<style>
+:root { --page:#f4f2ef; --ink:#23272f; --ink2:#6b7280; --hair:#e6e3de; --green:#66bb6a; --amber:#fb8c00; --gray:#9aa0a8; }
+* { box-sizing:border-box; }
+html,body { margin:0; padding:0; background:var(--page); }
+body {
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,"Noto Kufi Arabic","Noto Sans Arabic",Arial,sans-serif;
+    color:var(--ink); display:flex; justify-content:center;
+}
+.card { max-width:480px; width:100%; background:#fff; min-height:100vh; padding:16px 12px 26px; box-shadow:0 0 24px rgba(20,25,40,.06); }
+h1 { text-align:center; font-size:27px; margin:6px 0 2px; }
+.sub { text-align:center; font-size:13px; color:var(--ink2); margin-bottom:10px; }
+.stats { display:flex; gap:8px; margin-bottom:10px; }
+.chip { flex:1; border:1px solid var(--hair); border-radius:14px; padding:6px 4px; text-align:center; }
+.chip b { display:block; font-size:18px; line-height:1.25; }
+.chip span { font-size:11px; color:var(--ink2); }
+.modeline { text-align:center; font-size:12px; color:var(--ink2); margin-bottom:8px; min-height:16px; }
+.board { display:flex; flex-direction:column; gap:6px; align-items:center; margin-bottom:12px; }
+.wrow { display:flex; gap:6px; direction:rtl; }
+.cell {
+    width:56px; height:56px; border:2px solid var(--hair); border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:26px; font-weight:700; background:#fff;
+    transition:background .25s, border-color .25s, transform .25s;
+}
+.cell.cur { border-color:#b9b4ac; }
+.cell.flip { animation:flip .45s ease; }
+@keyframes flip { 50% { transform:rotateX(90deg); } }
+.cell.green { background:var(--green); border-color:var(--green); color:#fff; }
+.cell.amber { background:var(--amber); border-color:var(--amber); color:#fff; }
+.cell.gray { background:var(--gray); border-color:var(--gray); color:#fff; }
+.wrow.shake { animation:shake .4s ease; }
+@keyframes shake { 25% { transform:translateX(5px); } 50% { transform:translateX(-5px); } 75% { transform:translateX(3px); } }
+.kbd { display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+.krow { display:flex; gap:4px; direction:rtl; justify-content:center; }
+.key {
+    flex:1; max-width:44px; height:50px; border:1px solid var(--hair); border-radius:8px;
+    background:#f1eee9; font-family:inherit; font-size:17px; font-weight:600; color:var(--ink); cursor:pointer;
+    display:flex; align-items:center; justify-content:center; padding:0;
+    transition:background .2s;
+}
+.key:active { transform:scale(.94); }
+.key.wide { max-width:64px; font-size:13px; }
+.key.green { background:var(--green); border-color:var(--green); color:#fff; }
+.key.amber { background:var(--amber); border-color:var(--amber); color:#fff; }
+.key.gray { background:var(--gray); border-color:var(--gray); color:#fff; }
+.controls { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:6px; }
+.btn {
+    font-family:inherit; font-size:15px; padding:10px 16px; border-radius:12px;
+    border:1px solid var(--hair); background:#fff; color:var(--ink); cursor:pointer;
+}
+.btn:active { transform:scale(.97); }
+.btn.primary { background:var(--ink); color:#fff; border-color:var(--ink); font-weight:700; }
+.hintline { text-align:center; font-size:12.5px; color:var(--ink2); margin-top:10px; line-height:1.8; }
+.overlay {
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(244,242,239,.8); backdrop-filter:blur(3px); z-index:40; padding:14px;
+}
+.panel {
+    background:#fff; border:1px solid var(--hair); border-radius:18px; padding:18px 22px;
+    text-align:center; box-shadow:0 12px 32px rgba(20,25,40,.14);
+    display:flex; flex-direction:column; gap:9px; min-width:250px; max-width:92%;
+}
+.panel .t { font-size:22px; font-weight:700; }
+.panel .w { font-size:30px; font-weight:800; letter-spacing:2px; }
+.panel .d { font-size:13px; color:var(--ink2); line-height:1.8; }
+.panel .cd { font-size:15px; font-weight:700; color:var(--ink); direction:ltr; }
+.toast {
+    position:fixed; top:14px; right:50%; transform:translateX(50%);
+    background:var(--ink); color:#fff; border-radius:10px; padding:9px 16px; font-size:13.5px;
+    z-index:60; opacity:0; transition:opacity .25s; pointer-events:none;
+}
+.toast.on { opacity:1; }
+body.fs-pseudo { overflow:hidden; }
+body.fs-pseudo .card { position:fixed; inset:0; max-width:none; z-index:999; overflow-y:auto; min-height:0; }
+.card:fullscreen { max-width:none; overflow-y:auto; }
+@media (max-width:380px) { .cell { width:50px; height:50px; font-size:23px; } .key { font-size:15px; height:46px; } }
+</style>
+</head>
+<body>
+<div class="card">
+    <h1>خمّن الكلمة</h1>
+    <div class="sub">كلمة عربية من ٥ حروف، عندك ٦ محاولات. كلمة جديدة كل يوم!</div>
+    <div class="stats">
+        <div class="chip"><b id="uiPlayed">0</b><span>لعبت</span></div>
+        <div class="chip"><b id="uiWon">0</b><span>فزت</span></div>
+        <div class="chip"><b id="uiStreak">0</b><span>السلسلة</span></div>
+        <div class="chip"><b id="uiMax">0</b><span>أفضل سلسلة</span></div>
+    </div>
+    <div class="modeline" id="modeLine"></div>
+    <div class="board" id="board"></div>
+    <div class="kbd" id="kbd"></div>
+    <div class="controls">
+        <button type="button" class="btn" id="btnMute">🔊 الصوت</button>
+        <button type="button" class="btn" id="btnFs">⛶ ملء الشاشة</button>
+        <button type="button" class="btn" id="btnPractice">🎯 تدريب</button>
+    </div>
+    <div class="hintline">🟩 الحرف صحيح وفي مكانه · 🟨 موجود بمكان آخر · ⬜ غير موجود<br>اكتب أي كلمة من ٥ حروف وجرب حظك!</div>
+</div>
+<div class="overlay" id="ovEnd" style="display:none">
+    <div class="panel">
+        <div class="t" id="endTitle">🎉 أحسنت!</div>
+        <div class="w" id="endWord"></div>
+        <div class="d" id="endDetail"></div>
+        <div class="d">كلمة الغد بعد:</div>
+        <div class="cd" id="endCount">--:--:--</div>
+        <button type="button" class="btn primary" id="btnShare">📋 انسخ النتيجة</button>
+        <button type="button" class="btn" id="btnPractice2">🎯 جولة تدريب</button>
+        <button type="button" class="btn" id="btnClose">إغلاق</button>
+    </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+'use strict';
+(function () {
+
+// ---------- storage ----------
+function lsGet(k, d) { try { var v = window.localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
+function lsSet(k, v) { try { window.localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* no storage */ } }
+var stats = lsGet('desert-word.stats.v1', { played: 0, won: 0, streak: 0, max: 0 });
+var muted = !!lsGet('desert-word.muted.v1', false);
+var daily = lsGet('desert-word.daily.v1', null);
+
+// ---------- audio ----------
+var AC = null;
+function audio() {
+    if (muted) return null;
+    try {
+        if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+        if (AC.state === 'suspended') AC.resume();
+        return AC;
+    } catch (e) { return null; }
+}
+function tone(freq, dur, type, vol, slideTo, when) {
+    var ctx = audio(); if (!ctx) return;
+    var t = ctx.currentTime + (when || 0);
+    var o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type || 'triangle';
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(30, slideTo), t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol || 0.12, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(t); o.stop(t + dur + 0.05);
+}
+function sKey() { tone(600, 0.05, 'triangle', 0.06, 520); }
+function sSubmit() { tone(440, 0.08, 'sine', 0.09, 540); }
+function sWin() { [523, 659, 784, 1046].forEach(function (f, i) { tone(f, 0.15, 'sine', 0.12, null, i * 0.11); }); }
+function sLose() { tone(300, 0.3, 'sine', 0.1, 180); tone(220, 0.35, 'sine', 0.08, 140, 0.2); }
+
+// ---------- word list (original selection, common 5-letter Arabic words) ----------
+var WORDS = [
+    'كتابة','مدرسة','سيارة','طائرة','حديقة','صحراء','بحيرة','اشجار','كواكب','مجرات',
+    'شمسية','سحابة','عاصفة','انهار','اودية','بقرات','غزلان','نعامة','حمامة','عصفور',
+    'اسماك','حيتان','ثعالب','زرافة','تمساح','سحلية','تفاحة','رمانة','بطيخة','طماطم',
+    'منازل','ابواب','جدران','نافذة','مطابخ','طاولة','كراسي','مكاتب','مصباح','سجادة',
+    'وسادة','شراشف','مرايا','ابراج','اسواق','متاجر','مكتبة','فنادق','محطات','جزيرة',
+    'غابات','مزرعة','سلسلة','خواتم','اقفال','مفتاح','قافلة','واحات','كثبان','فانوس',
+    'مراكب','سفينة','قوارب','مجداف','اشرعة','مرساة','بوصلة','خريطة','احجار','اضواء',
+    'اصوات','الوان','اقلام','اوراق','دفاتر','ممحاة','مسطرة','حقيبة','مقاعد','سبورة',
+    'حاسوب','شاشات','هواتف','اجهزة','تلفاز','راديو','ارواح','افكار','احلام','احزان',
+    'مخاوف','سلامة','عدالة','حريات','معرفة','ثقافة','تاريخ','حضارة','اوقات','اسبوع',
+    'سنوات','لحظات','دقيقة','ساعات','ليالي','ظهيرة','مغارب','امهات','اخوان','اخوات',
+    'اولاد','اجداد','اعمام','اخوال','اصحاب','جيران','عايلة','قبيلة','ملكات','امراء',
+    'اطباء','ممرضة','مهندس','محامي','ايادي','افواه','العاب','رياضة','سباحة','قراءة',
+    'لوحات','اغنية','قصيدة','حكاية','رواية','مجلات','جريدة','رسالة','ارقام','اعداد',
+    'مبالغ','دينار','دراهم','اسعار','هدايا','جائزة','تعليم','تدريب','تفكير','تخطيط',
+    'تنظيم','تصميم','برمجة','سياحة','رحلات','زيارة','ضيافة','شواطي','مواني','نجارة',
+    'حدادة','خياطة','سناجب','مخدات','اواني','معادن','جواهر','عطارة','مباخر','ورقات',
+    'اعشاب','اقمشة'
+];
+// fix: keep only normalized-5 unique entries (validated at build time)
+function norm(w) {
+    return w.replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ؤ/g, 'و').replace(/ئ/g, 'ي');
+}
+WORDS = (function () {
+    var seen = {}, out = [];
+    WORDS.forEach(function (w) {
+        var n = norm(w);
+        if (n.length === 5 && !seen[n]) { seen[n] = 1; out.push(n); }
+    });
+    return out;
+})();
+
+// ---------- day / word ----------
+var KWT = 3 * 3600e3;
+function todayIndex() { return Math.floor((Date.now() + KWT) / 86400e3); }
+function dailyWord() { return WORDS[todayIndex() % WORDS.length]; }
+
+// ---------- state ----------
+var ROWS = 6, COLS = 5;
+var mode = 'daily'; // daily | practice
+var solution = '', guesses = [], cur = '', status = 'playing'; // playing | won | lost
+var keyState = {}; // letter -> 'green'|'amber'|'gray' (best)
+var board = document.getElementById('board'), kbd = document.getElementById('kbd');
+var modeLine = document.getElementById('modeLine');
+
+var KB_ROWS = [
+    ['ض', 'ص', 'ث', 'ق', 'ف', 'غ', 'ع', 'ه', 'خ', 'ح', 'ج', 'د'],
+    ['ش', 'س', 'ي', 'ب', 'ل', 'ا', 'ت', 'ن', 'م', 'ك', 'ط'],
+    ['دخول', 'ئ', 'ء', 'ؤ', 'ر', 'ى', 'ة', 'و', 'ز', 'ظ', '⌫']
+];
+
+function buildBoard() {
+    board.innerHTML = '';
+    for (var r = 0; r < ROWS; r++) {
+        var row = document.createElement('div');
+        row.className = 'wrow';
+        for (var c = 0; c < COLS; c++) {
+            var cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.id = 'c' + r + '-' + c;
+            row.appendChild(cell);
+        }
+        board.appendChild(row);
+    }
+}
+function buildKbd() {
+    kbd.innerHTML = '';
+    KB_ROWS.forEach(function (row) {
+        var r = document.createElement('div');
+        r.className = 'krow';
+        row.forEach(function (k) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'key' + (k === 'دخول' || k === '⌫' ? ' wide' : '');
+            b.textContent = k;
+            b.id = 'k-' + k;
+            b.addEventListener('click', function () { press(k); });
+            r.appendChild(b);
+        });
+        kbd.appendChild(r);
+    });
+}
+
+function grade(guess, sol) {
+    // two-pass: greens first, then ambers limited by remaining letter counts
+    var res = ['gray', 'gray', 'gray', 'gray', 'gray'];
+    var left = {};
+    for (var i = 0; i < COLS; i++) {
+        if (guess[i] === sol[i]) res[i] = 'green';
+        else left[sol[i]] = (left[sol[i]] || 0) + 1;
+    }
+    for (var j = 0; j < COLS; j++) {
+        if (res[j] === 'green') continue;
+        if (left[guess[j]] > 0) { res[j] = 'amber'; left[guess[j]]--; }
+    }
+    return res;
+}
+
+function renderRow(r, animate) {
+    var g = guesses[r];
+    var grades = grade(norm(g), solution);
+    for (var c = 0; c < COLS; c++) {
+        (function (cell, cls, delay) {
+            setTimeout(function () {
+                if (animate) cell.classList.add('flip');
+                cell.classList.add(cls);
+            }, animate ? delay : 0);
+        })(document.getElementById('c' + r + '-' + c), grades[c], c * 220);
+    }
+    // keyboard colors (best wins)
+    setTimeout(function () {
+        var n = norm(g);
+        for (var c2 = 0; c2 < COLS; c2++) {
+            var L = n[c2], cls = grades[c2];
+            var rank = { gray: 1, amber: 2, green: 3 };
+            if (!keyState[L] || rank[cls] > rank[keyState[L]]) keyState[L] = cls;
+            var keyEl = document.getElementById('k-' + g[c2]);
+            if (keyEl) {
+                keyEl.classList.remove('green', 'amber', 'gray');
+                keyEl.classList.add(keyState[L]);
+            }
+        }
+    }, animate ? 4 * 220 + 200 : 0);
+}
+
+function renderCurrent() {
+    for (var c = 0; c < COLS; c++) {
+        var cell = document.getElementById('c' + guesses.length + '-' + c);
+        if (!cell) return;
+        cell.textContent = cur[c] || '';
+        cell.classList.toggle('cur', !!cur[c]);
+    }
+}
+function restoreGuesses() {
+    for (var r = 0; r < guesses.length; r++) {
+        var g = guesses[r];
+        for (var c = 0; c < COLS; c++) document.getElementById('c' + r + '-' + c).textContent = g[c];
+        renderRow(r, false);
+    }
+}
+
+function toast(msg) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('on');
+    setTimeout(function () { t.classList.remove('on'); }, 1600);
+}
+
+function saveDaily() {
+    if (mode === 'daily') lsSet('desert-word.daily.v1', { day: todayIndex(), guesses: guesses, status: status });
+}
+function syncStats() {
+    document.getElementById('uiPlayed').textContent = String(stats.played);
+    document.getElementById('uiWon').textContent = String(stats.won);
+    document.getElementById('uiStreak').textContent = String(stats.streak);
+    document.getElementById('uiMax').textContent = String(stats.max);
+    modeLine.textContent = mode === 'practice' ? '🎯 جولة تدريب — لا تؤثر على إحصائياتك' : '';
+}
+
+function submit() {
+    if (status !== 'playing') return;
+    if (cur.length < COLS) {
+        var row = board.children[guesses.length];
+        if (row) { row.classList.remove('shake'); void row.offsetWidth; row.classList.add('shake'); }
+        toast('أكمل الحروف الخمسة');
+        return;
+    }
+    sSubmit();
+    guesses.push(cur);
+    renderRow(guesses.length - 1, true);
+    var n = norm(cur);
+    cur = '';
+    if (n === solution) {
+        status = 'won';
+        if (mode === 'daily') {
+            stats.played++; stats.won++; stats.streak++;
+            if (stats.streak > stats.max) stats.max = stats.streak;
+            lsSet('desert-word.stats.v1', stats);
+        }
+        sWin();
+        setTimeout(function () { endOverlay(true); }, 1300);
+    } else if (guesses.length >= ROWS) {
+        status = 'lost';
+        if (mode === 'daily') {
+            stats.played++; stats.streak = 0;
+            lsSet('desert-word.stats.v1', stats);
+        }
+        sLose();
+        setTimeout(function () { endOverlay(false); }, 1300);
+    }
+    saveDaily();
+    syncStats();
+    renderCurrent();
+}
+
+function press(k) {
+    if (status !== 'playing') return;
+    if (k === '⌫') { cur = cur.slice(0, -1); sKey(); renderCurrent(); return; }
+    if (k === 'دخول') { submit(); return; }
+    if (cur.length >= COLS) return;
+    audio();
+    sKey();
+    cur += k;
+    renderCurrent();
+}
+window.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { submit(); e.preventDefault(); return; }
+    if (e.key === 'Backspace') { cur = cur.slice(0, -1); renderCurrent(); e.preventDefault(); return; }
+    if (/^[\u0621-\u064A]$/.test(e.key)) press(e.key);
+});
+
+// ---------- end overlay / countdown / share ----------
+var cdTimer = null;
+function msToNextDay() {
+    var t = Date.now() + KWT;
+    return (Math.floor(t / 86400e3) + 1) * 86400e3 - KWT - Date.now();
+}
+function tickCountdown() {
+    var ms = msToNextDay(), s = Math.floor(ms / 1000);
+    var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
+    document.getElementById('endCount').textContent =
+        String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+}
+function endOverlay(wonGame) {
+    if (mode === 'practice') {
+        document.getElementById('endTitle').textContent = wonGame ? '🎉 أحسنت!' : '😅 انتهت الجولة';
+        document.getElementById('endWord').textContent = solution;
+        document.getElementById('endDetail').textContent = wonGame ?
+            'حللت كلمة التدريب في ' + guesses.length + ' من ٦ محاولات.' : 'الكلمة كانت كما ترى. جرب كلمة اليوم!';
+        document.getElementById('endCount').textContent = '';
+    } else {
+        document.getElementById('endTitle').textContent = wonGame ? '🎉 أحسنت!' : '😅 حظ أوفر غداً';
+        document.getElementById('endWord').textContent = solution;
+        document.getElementById('endDetail').textContent = wonGame ?
+            'حللت كلمة اليوم #' + (todayIndex() % WORDS.length + 1) + ' في ' + guesses.length + ' من ٦ محاولات.' :
+            'لم تنجح هذه المرة. السلسلة رجعت للصفر، غداً يوم جديد!';
+        tickCountdown();
+        clearInterval(cdTimer);
+        cdTimer = setInterval(tickCountdown, 1000);
+    }
+    document.getElementById('ovEnd').style.display = 'flex';
+}
+function shareText() {
+    var day = todayIndex() % WORDS.length + 1;
+    var head = 'خمّن الكلمة #' + day + ' — ' + (status === 'won' ? guesses.length : 'X') + '/6';
+    var lines = guesses.map(function (g) {
+        return grade(norm(g), solution).map(function (c) { return c === 'green' ? '🟩' : c === 'amber' ? '🟨' : '⬜'; }).join('');
+    });
+    return head + '\n' + lines.join('\n');
+}
+document.getElementById('btnShare').addEventListener('click', function () {
+    var text = shareText();
+    function done() { sKey(); toast('نُسخت النتيجة! الصقها أين تريد'); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function () { fallback(); });
+    } else fallback();
+    function fallback() {
+        try {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            done();
+        } catch (e) { toast('تعذر النسخ على هذا المتصفح'); }
+    }
+});
+document.getElementById('btnClose').addEventListener('click', function () {
+    sKey();
+    document.getElementById('ovEnd').style.display = 'none';
+});
+
+// ---------- modes ----------
+function startDaily() {
+    mode = 'daily';
+    solution = dailyWord();
+    guesses = []; cur = ''; status = 'playing'; keyState = {};
+    if (daily && daily.day === todayIndex()) {
+        guesses = daily.guesses || [];
+        status = daily.status || 'playing';
+    }
+    buildBoard(); buildKbd();
+    restoreGuesses();
+    renderCurrent();
+    if (status !== 'playing') setTimeout(function () { endOverlay(status === 'won'); }, 600);
+    syncStats();
+}
+function startPractice() {
+    sKey();
+    mode = 'practice';
+    solution = WORDS[(Math.random() * WORDS.length) | 0];
+    guesses = []; cur = ''; status = 'playing'; keyState = {};
+    document.getElementById('ovEnd').style.display = 'none';
+    clearInterval(cdTimer);
+    buildBoard(); buildKbd();
+    renderCurrent();
+    syncStats();
+}
+document.getElementById('btnPractice').addEventListener('click', function () {
+    if (mode === 'practice') { startDaily(); sKey(); }
+    else startPractice();
+});
+document.getElementById('btnPractice2').addEventListener('click', startPractice);
+function syncPracticeLabel() {
+    document.getElementById('btnPractice').textContent = mode === 'practice' ? '📅 كلمة اليوم' : '🎯 تدريب';
+}
+setInterval(syncPracticeLabel, 400);
+
+// ---------- mute / fullscreen ----------
+function syncMute() { document.getElementById('btnMute').textContent = muted ? '🔇 الصوت' : '🔊 الصوت'; }
+document.getElementById('btnMute').addEventListener('click', function () {
+    muted = !muted;
+    lsSet('desert-word.muted.v1', muted);
+    syncMute();
+    if (!muted) sKey();
+});
+function isFs() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+function pseudoFs() { return document.body.classList.contains('fs-pseudo'); }
+function syncFs() {
+    document.getElementById('btnFs').textContent = (isFs() || pseudoFs()) ? '✕ خروج' : '⛶ ملء الشاشة';
+}
+function pseudoSet(on) { document.body.classList.toggle('fs-pseudo', on); syncFs(); }
+function toggleFs() {
+    sKey();
+    if (pseudoFs()) { pseudoSet(false); return; }
+    if (isFs()) {
+        try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) { /* ignore */ }
+        return;
+    }
+    var card = document.querySelector('.card');
+    var ok = false;
+    try {
+        if (card.requestFullscreen) {
+            var r = card.requestFullscreen();
+            ok = true;
+            if (r && r.catch) r.catch(function () { pseudoSet(true); });
+        } else if (card.webkitRequestFullscreen) { card.webkitRequestFullscreen(); ok = true; }
+    } catch (e) { ok = false; }
+    if (!ok) pseudoSet(true);
+    else setTimeout(function () { if (!isFs() && !pseudoFs()) pseudoSet(true); }, 600);
+    syncFs();
+}
+document.getElementById('btnFs').addEventListener('click', toggleFs);
+document.addEventListener('fullscreenchange', syncFs);
+document.addEventListener('webkitfullscreenchange', syncFs);
+
+// test hook (harmless): deterministic checks for automated play-testing
+window.__wordTest = {
+    state: function () { return { mode: mode, status: status, rows: guesses.length, cur: cur, day: todayIndex(), words: WORDS.length }; },
+    solution: function () { return solution; },
+    type: function (w) { for (var i = 0; i < w.length; i++) press(w[i]); },
+    enter: function () { submit(); },
+    practice: function () { startPractice(); },
+    gradeOf: function (g) { return grade(norm(g), solution); }
+};
+
+buildBoard();
+buildKbd();
+startDaily();
+syncMute();
+syncFs();
+
+})();
+</script>
+</body>
+</html>
