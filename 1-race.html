@@ -49,6 +49,10 @@ canvas { display: block; width: 100%; touch-action: none; user-select: none; -we
 .btn.primary { background: var(--ink); color: #ffffff; border-color: var(--ink); font-weight: 700; }
 .controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
 .hintline { text-align: center; font-size: 12.5px; color: var(--ink2); margin-top: 10px; line-height: 1.8; }
+body.fs-pseudo { overflow: hidden; }
+body.fs-pseudo .card { position: fixed; inset: 0; max-width: none; z-index: 999; overflow-y: auto; min-height: 0; }
+.card:fullscreen { max-width: none; overflow-y: auto; }
+body.fs-pseudo .stage, .card:fullscreen .stage { max-width: min(100%, 62vh); margin: 0 auto; }
 </style>
 </head>
 <body>
@@ -84,6 +88,7 @@ canvas { display: block; width: 100%; touch-action: none; user-select: none; -we
     </div>
     <div class="controls">
         <button type="button" class="btn" id="btnMute3">🔊 الصوت</button>
+        <button type="button" class="btn" id="btnFs">⛶ ملء الشاشة</button>
         <button type="button" class="btn" id="btnRestart">🔄 من البداية</button>
     </div>
     <div class="hintline">تجنّب سيارات الطريق واجمع النجوم ⭐ لنقاط إضافية.<br>الخروج عن الأسفلت يبطئك!</div>
@@ -294,6 +299,41 @@ function gameOver() {
     setTimeout(function () { if (S === 'over') ovOver.style.display = 'flex'; }, 450);
     syncUI();
 }
+
+// ---------- fullscreen ----------
+function isFs() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+function pseudoFs() { return document.body.classList.contains('fs-pseudo'); }
+function syncFs() {
+    var on = isFs() || pseudoFs();
+    var b = document.getElementById('btnFs');
+    if (b) b.textContent = on ? '✕ خروج' : '⛶ ملء الشاشة';
+    setTimeout(resize, 60);
+    setTimeout(resize, 350);
+}
+function pseudoSet(on) { document.body.classList.toggle('fs-pseudo', on); syncFs(); }
+function toggleFs() {
+    sClick();
+    if (pseudoFs()) { pseudoSet(false); return; }
+    if (isFs()) {
+        try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) { /* ignore */ }
+        return;
+    }
+    var card = document.querySelector('.card');
+    var ok = false;
+    try {
+        if (card.requestFullscreen) {
+            var r = card.requestFullscreen();
+            ok = true;
+            if (r && r.catch) r.catch(function () { pseudoSet(true); });
+        } else if (card.webkitRequestFullscreen) { card.webkitRequestFullscreen(); ok = true; }
+    } catch (e) { ok = false; }
+    if (!ok) pseudoSet(true);
+    else setTimeout(function () { if (!isFs() && !pseudoFs()) pseudoSet(true); }, 600);
+    syncFs();
+}
+document.getElementById('btnFs').addEventListener('click', toggleFs);
+document.addEventListener('fullscreenchange', syncFs);
+document.addEventListener('webkitfullscreenchange', syncFs);
 
 // test hook (harmless): lets automated checks reach a crash deterministically
 window.__raceTest = { crash: function () { if (S === 'run') gameOver(); }, state: function () { return { s: S, score: Math.round(score), stars: stars, kmh: Math.round(speed / MAX_SPEED * 220), cars: cars.length, x: playerX }; } };
