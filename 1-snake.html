@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ثعبان الصحراء</title>
+<style>
+:root { --page:#f4f2ef; --ink:#23272f; --ink2:#6b7280; --hair:#e6e3de; }
+* { box-sizing:border-box; }
+html,body { margin:0; padding:0; background:var(--page); }
+body {
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,"Noto Kufi Arabic","Noto Sans Arabic",Arial,sans-serif;
+    color:var(--ink); display:flex; justify-content:center;
+}
+.card { max-width:480px; width:100%; background:#fff; min-height:100vh; padding:18px 14px 28px; box-shadow:0 0 24px rgba(20,25,40,.06); }
+h1 { text-align:center; font-size:28px; margin:8px 0 2px; }
+.sub { text-align:center; font-size:13px; color:var(--ink2); margin-bottom:12px; }
+.stats { display:flex; gap:8px; margin-bottom:10px; }
+.chip { flex:1; border:1px solid var(--hair); border-radius:14px; padding:7px 6px; text-align:center; }
+.chip b { display:block; font-size:19px; line-height:1.25; }
+.chip span { font-size:11.5px; color:var(--ink2); }
+.stage { position:relative; border-radius:20px; overflow:hidden; border:1px solid var(--hair); }
+canvas { display:block; width:100%; touch-action:none; user-select:none; -webkit-user-select:none; background:#f7f5f1; }
+.overlay {
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(244,242,239,.78); backdrop-filter:blur(3px); z-index:30; padding:14px;
+}
+.panel {
+    background:#fff; border:1px solid var(--hair); border-radius:18px; padding:18px 20px;
+    text-align:center; box-shadow:0 12px 32px rgba(20,25,40,.14);
+    display:flex; flex-direction:column; gap:9px; min-width:240px; max-width:100%; max-height:96%; overflow-y:auto;
+}
+.panel .t { font-size:22px; font-weight:700; }
+.panel .big { font-size:32px; font-weight:800; }
+.panel .d { font-size:13px; color:var(--ink2); line-height:1.8; }
+.panel .rec { font-size:13px; color:#1b7f4b; font-weight:700; }
+.lv-strip { display:flex; gap:6px; overflow-x:auto; padding:4px 2px; }
+.lv-strip .lv {
+    min-width:34px; height:34px; border-radius:10px; border:1px solid var(--hair);
+    background:#fff; font-family:inherit; font-size:14px; cursor:pointer; flex:0 0 auto;
+}
+.lv-strip .lv.on { background:var(--ink); color:#fff; border-color:var(--ink); font-weight:700; }
+.lv-strip .lv.lock { opacity:.35; cursor:default; }
+.btn {
+    font-family:inherit; font-size:15px; padding:11px 16px; border-radius:12px;
+    border:1px solid var(--hair); background:#fff; color:var(--ink); cursor:pointer;
+}
+.btn:active { transform:scale(.97); }
+.btn.primary { background:var(--ink); color:#fff; border-color:var(--ink); font-weight:700; }
+.controls { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:10px; }
+.hintline { text-align:center; font-size:12.5px; color:var(--ink2); margin-top:10px; line-height:1.8; }
+.legend { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; font-size:12px; color:var(--ink2); margin-top:8px; }
+.legend span { display:inline-flex; align-items:center; gap:4px; }
+.dot { width:12px; height:12px; border-radius:4px; display:inline-block; }
+</style>
+</head>
+<body>
+<div class="card">
+    <h1>ثعبان الصحراء</h1>
+    <div class="sub">كُل التمر، تجنّب الجدران، واعبر البوابات عبر ٢٤ مستوى!</div>
+    <div class="stats">
+        <div class="chip"><b id="uiScore">0</b><span>النقاط</span></div>
+        <div class="chip"><b id="uiBest">0</b><span>الأفضل</span></div>
+        <div class="chip"><b id="uiLevel">1</b><span>المستوى</span></div>
+        <div class="chip"><b id="uiGoal">0</b><span>التبقّي</span></div>
+    </div>
+    <div class="stage">
+        <canvas id="cv" width="480" height="480"></canvas>
+        <div class="overlay" id="ovStart">
+            <div class="panel">
+                <div class="t">🐍 ثعبان الصحراء</div>
+                <div class="d">اسحب بإصبعك على الشاشة لتوجيه الثعبان،<br>أو استخدم الأسهم على لوحة المفاتيح.<br>كل مستوى أسرع وأصعب: جدران، متاهات وبوابات!</div>
+                <div class="lv-strip" id="lvStrip"></div>
+                <button type="button" class="btn primary" id="btnStart">ابدأ اللعب</button>
+                <button type="button" class="btn" id="btnMute1">🔊 الصوت</button>
+            </div>
+        </div>
+        <div class="overlay" id="ovLevel" style="display:none">
+            <div class="panel">
+                <div class="t" id="lvTitle">المستوى 2</div>
+                <div class="d" id="lvDetail"></div>
+            </div>
+        </div>
+        <div class="overlay" id="ovOver" style="display:none">
+            <div class="panel">
+                <div class="t">💥 انتهت الجولة!</div>
+                <div class="big" id="ovScore">0</div>
+                <div class="d" id="ovDetail"></div>
+                <div class="rec" id="ovRecord" style="display:none">🏆 رقم قياسي جديد!</div>
+                <button type="button" class="btn primary" id="btnRetry">🔁 أعد المستوى</button>
+                <button type="button" class="btn" id="btnHome">🏠 من البداية</button>
+                <button type="button" class="btn" id="btnMute2">🔊 الصوت</button>
+            </div>
+        </div>
+    </div>
+    <div class="legend">
+        <span><i class="dot" style="background:#8d4a2b"></i>تمرة +10</span>
+        <span><i class="dot" style="background:#fbbf24"></i>نجمة +40</span>
+        <span><i class="dot" style="background:#42a5f5"></i>تبطئة</span>
+        <span><i class="dot" style="background:#ab47bc"></i>تقصير</span>
+    </div>
+    <div class="controls">
+        <button type="button" class="btn" id="btnMute3">🔊 الصوت</button>
+        <button type="button" class="btn" id="btnHome2">🏠 القائمة</button>
+    </div>
+    <div class="hintline">الجدران والذيل يُنهون الجولة. البوابات الزرقاء والبنفسجية تنقلك فوراً.<br>تقدّمك في المستويات يُحفظ على جهازك.</div>
+</div>
+<script>
+'use strict';
+(function () {
+
+// ---------- storage ----------
+function lsGet(k, d) { try { var v = window.localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
+function lsSet(k, v) { try { window.localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* no storage */ } }
+var best = lsGet('desert-snake.best.v1', { s: 0, l: 1 });
+var maxLevel = lsGet('desert-snake.max.v1', 1) | 0;
+var muted = !!lsGet('desert-snake.muted.v1', false);
+
+// ---------- audio ----------
+var AC = null;
+function audio() {
+    if (muted) return null;
+    try {
+        if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+        if (AC.state === 'suspended') AC.resume();
+        return AC;
+    } catch (e) { return null; }
+}
+function tone(freq, dur, type, vol, slideTo, when) {
+    var ctx = audio(); if (!ctx) return;
+    var t = ctx.currentTime + (when || 0);
+    var o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type || 'triangle';
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(30, slideTo), t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol || 0.12, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(t); o.stop(t + dur + 0.05);
+}
+function sClick() { tone(520, 0.06, 'triangle', 0.07, 460); }
+function sEat() { tone(520, 0.08, 'sine', 0.12, 700); }
+function sStar() { tone(880, 0.09, 'sine', 0.13, 1320); tone(1320, 0.12, 'sine', 0.1, 1760, 0.08); }
+function sSpecial() { tone(392, 0.1, 'triangle', 0.12, 523); tone(523, 0.12, 'triangle', 0.1, 659, 0.08); }
+function sPortal() { tone(700, 0.22, 'sine', 0.1, 180); tone(180, 0.22, 'sine', 0.08, 700, 0.1); }
+function sLevel() { [523, 659, 784].forEach(function (f, i) { tone(f, 0.13, 'sine', 0.12, null, i * 0.1); }); }
+function sCrash() {
+    var ctx = audio(); if (!ctx) return;
+    tone(160, 0.35, 'sawtooth', 0.18, 55);
+    try {
+        var len = Math.floor(ctx.sampleRate * 0.25), buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+        for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+        var src = ctx.createBufferSource(), g = ctx.createGain();
+        src.buffer = buf; g.gain.value = 0.2;
+        src.connect(g); g.connect(ctx.destination); src.start();
+    } catch (e) { /* ignore */ }
+}
+
+// ---------- canvas ----------
+var cv = document.getElementById('cv');
+var ctx = cv.getContext('2d');
+var W = 480, CELL = 24;
+var G = 21; // grid G x G
+function resize() {
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    var w = cv.clientWidth || 480;
+    cv.width = Math.round(w * dpr); cv.height = Math.round(w * dpr);
+    W = cv.width; CELL = W / G;
+}
+window.addEventListener('resize', resize);
+
+// ---------- seeded rng ----------
+function mulberry32(a) {
+    return function () {
+        a |= 0; a = a + 0x6D2B79F5 | 0;
+        var t = Math.imul(a ^ a >>> 15, 1 | a);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+}
+
+// ---------- level generation ----------
+var FAMS = ['pillars', 'corners', 'columns', 'zigzag', 'rows', 'cross', 'ring', 'rooms', 'spiral'];
+function key(x, y) { return x + ',' + y; }
+function buildLevel(n) {
+    var rng = mulberry32(n * 7919 + 13);
+    var walls = new Set();
+    var x, y;
+    for (x = 0; x < G; x++) { walls.add(key(x, 0)); walls.add(key(x, G - 1)); }
+    for (y = 0; y < G; y++) { walls.add(key(0, y)); walls.add(key(G - 1, y)); }
+    function add(x0, y0) { if (x0 > 0 && y0 > 0 && x0 < G - 1 && y0 < G - 1) walls.add(key(x0, y0)); }
+    function hseg(x0, x1, y0, gaps) { for (var i = x0; i <= x1; i++) if (!gaps || gaps.indexOf(i) < 0) add(i, y0); }
+    function vseg(y0, y1, x0, gaps) { for (var i = y0; i <= y1; i++) if (!gaps || gaps.indexOf(i) < 0) add(x0, i); }
+
+    function pillars(d) {
+        var pts = [[5, 5], [15, 5], [5, 15], [15, 15]];
+        if (d > 1) pts = pts.concat([[10, 4], [10, 16], [4, 10], [16, 10]]);
+        if (d > 2) pts = pts.concat([[3, 3], [17, 3], [3, 17], [17, 17]]);
+        pts.forEach(function (p) { add(p[0], p[1]); });
+    }
+    function corners(d) {
+        var cs = [[2, 2], [16, 2], [2, 16], [16, 16]];
+        cs.forEach(function (c) {
+            var dx = c[0] < 10 ? 1 : -1, dy = c[1] < 10 ? 1 : -1;
+            for (var i = 0; i < (d > 1 ? 4 : 3); i++) { add(c[0] + dx * i, c[1]); add(c[0], c[1] + dy * i); }
+        });
+    }
+    function columns() { vseg(2, 7, 6); vseg(10, 13, 6); vseg(15, 18, 6); vseg(2, 5, 14); vseg(8, 13, 14); vseg(16, 18, 14); }
+    function rows() { hseg(2, 7, 6); hseg(10, 13, 6); hseg(15, 18, 6); hseg(2, 5, 14); hseg(8, 13, 14); hseg(16, 18, 14); }
+    function cross() { hseg(3, 17, 10, [5, 10, 15]); vseg(3, 17, 10, [5, 15]); }
+    function ring() {
+        for (var i = 5; i <= 15; i++) {
+            if (i !== 10) { add(i, 5); add(i, 15); add(5, i); add(15, i); }
+        }
+    }
+    function zigzag(d) {
+        hseg(3, 9, 6); hseg(11, 17, 14); hseg(7, 13, 10, [10]);
+        if (d > 1) { hseg(11, 15, 3); hseg(5, 9, 17); }
+    }
+    function spiral() {
+        hseg(5, 15, 5); vseg(5, 15, 15); hseg(5, 15, 15, [8]); vseg(8, 15, 5); hseg(7, 13, 9, [12]);
+    }
+    function rooms() { vseg(2, 18, 10, [4, 10, 16]); hseg(2, 18, 10, [4, 16]); }
+
+    var fams = [];
+    var fi = (n - 1) % FAMS.length;
+    fams.push(FAMS[fi]);
+    if (n >= 10) fams.push(FAMS[(fi + 3) % FAMS.length]);
+    if (n >= 19) fams.push(FAMS[(fi + 6) % FAMS.length]);
+    var density = n >= 19 ? 3 : (n >= 6 ? 2 : 1);
+    fams.forEach(function (f) {
+        if (f === 'pillars') pillars(density);
+        else if (f === 'corners') corners(density > 1 ? 2 : 1);
+        else if (f === 'columns') columns();
+        else if (f === 'rows') rows();
+        else if (f === 'cross') cross();
+        else if (f === 'ring') ring();
+        else if (f === 'zigzag') zigzag(density);
+        else if (f === 'spiral') spiral();
+        else if (f === 'rooms') rooms();
+    });
+
+    // keep spawn area clear
+    for (x = 0; x < G; x++) for (y = 0; y < G; y++) {
+        if (Math.abs(x - 10) + Math.abs(y - 10) <= 3) walls.delete(key(x, y));
+    }
+
+    // portals on selected levels
+    var portals = [];
+    if ([5, 8, 11, 14, 17, 20, 22, 24].indexOf(((n - 1) % 24) + 1) >= 0 || n > 24 && n % 3 === 0) {
+        var flip = rng() > 0.5;
+        var a = flip ? { x: 3, y: 3 } : { x: 3, y: 17 };
+        var b = flip ? { x: 17, y: 17 } : { x: 17, y: 3 };
+        [a, b].forEach(function (p) {
+            for (var dx = -1; dx <= 1; dx++) for (var dy = -1; dy <= 1; dy++) walls.delete(key(p.x + dx, p.y + dy));
+        });
+        portals = [{ a: a, b: b }];
+    }
+
+    var tick = Math.max(68, 125 - 4 * (n - 1));
+    var goal = 5 + Math.ceil(n / 2);
+    return { n: n, walls: walls, portals: portals, tick: tick, goal: goal };
+}
+
+// ---------- state ----------
+var mode = 'menu'; // menu | run | levelup | over
+var level = 1, lv = null;
+var snake = [], dir = { x: 1, y: 0 }, dirQueue = [];
+var food = null, special = null;
+var score = 0, scoreAtLevelStart = 0, eaten = 0;
+var tickMs = 135, baseTick = 135, eats = 0;
+var slowUntil = 0, lastStep = 0, timerId = null;
+var teleports = 0, shrinkCount = 0, slowCount = 0, starCount = 0;
+var pulse = 0;
+
+var uiScore = document.getElementById('uiScore'), uiBest = document.getElementById('uiBest'),
+    uiLevel = document.getElementById('uiLevel'), uiGoal = document.getElementById('uiGoal');
+var ovStart = document.getElementById('ovStart'), ovLevel = document.getElementById('ovLevel'), ovOver = document.getElementById('ovOver');
+
+function syncUI() {
+    uiScore.textContent = String(score);
+    uiBest.textContent = String(best.s);
+    uiLevel.textContent = String(level);
+    uiGoal.textContent = lv ? String(Math.max(0, lv.goal - eaten)) : '0';
+}
+
+function freeCell(minHeadDist) {
+    var body = new Set(snake.map(function (s) { return key(s.x, s.y); }));
+    for (var tries = 0; tries < 400; tries++) {
+        var x = 1 + ((Math.random() * (G - 2)) | 0), y = 1 + ((Math.random() * (G - 2)) | 0);
+        var k = key(x, y);
+        if (lv.walls.has(k) || body.has(k)) continue;
+        if (food && food.x === x && food.y === y) continue;
+        if (special && special.x === x && special.y === y) continue;
+        if (lv.portals.some(function (p) { return (p.a.x === x && p.a.y === y) || (p.b.x === x && p.b.y === y); })) continue;
+        var h = snake[0];
+        if (h && Math.abs(h.x - x) + Math.abs(h.y - y) < (minHeadDist || 2)) continue;
+        return { x: x, y: y };
+    }
+    return null;
+}
+function spawnFood() {
+    var c = freeCell(2);
+    food = c ? { x: c.x, y: c.y } : null;
+}
+function spawnSpecial(forceType) {
+    if (special) return;
+    var c = freeCell(4);
+    if (!c) return;
+    var r = Math.random();
+    var type = forceType || (r < 0.45 ? 'star' : (r < 0.725 ? 'slow' : 'shrink'));
+    special = { x: c.x, y: c.y, type: type, until: Date.now() + 7000 };
+}
+
+function startLevel(n, keepScore) {
+    level = n;
+    lv = buildLevel(n);
+    if (!keepScore) { score = 0; scoreAtLevelStart = 0; } else { score = scoreAtLevelStart; }
+    snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }, { x: 7, y: 10 }];
+    dir = { x: 1, y: 0 }; dirQueue = [];
+    eaten = 0; eats = 0; special = null; slowUntil = 0;
+    baseTick = lv.tick; tickMs = baseTick;
+    spawnFood();
+    syncUI();
+}
+function startRun(n) {
+    sClick();
+    startLevel(n, false);
+    mode = 'run';
+    ovStart.style.display = 'none';
+    ovOver.style.display = 'none';
+    ovLevel.style.display = 'none';
+    lastStep = Date.now();
+    ensureTimer();
+}
+function ensureTimer() {
+    if (timerId) return;
+    timerId = setInterval(function () {
+        var now = Date.now();
+        if (mode !== 'run') return;
+        var interval = now < slowUntil ? tickMs * 1.45 : tickMs;
+        if (now - lastStep >= interval) { lastStep = now; step(); }
+        if (special && now > special.until) special = null;
+    }, 20);
+}
+
+function queueDir(d) {
+    var last = dirQueue.length ? dirQueue[dirQueue.length - 1] : dir;
+    if (d.x === -last.x && d.y === -last.y) return;
+    if (d.x === last.x && d.y === last.y) return;
+    if (dirQueue.length < 3) dirQueue.push(d);
+}
+
+function step() {
+    if (mode !== 'run') return;
+    if (dirQueue.length) dir = dirQueue.shift();
+    var h = snake[0];
+    var nx = h.x + dir.x, ny = h.y + dir.y;
+
+    // portals
+    for (var i = 0; i < lv.portals.length; i++) {
+        var p = lv.portals[i];
+        if (nx === p.a.x && ny === p.a.y) { nx = p.b.x; ny = p.b.y; teleports++; sPortal(); break; }
+        if (nx === p.b.x && ny === p.b.y) { nx = p.a.x; ny = p.a.y; teleports++; sPortal(); break; }
+    }
+
+    var k = key(nx, ny);
+    if (lv.walls.has(k) || nx < 0 || ny < 0 || nx >= G || ny >= G) { die(); return; }
+
+    var eating = food && food.x === nx && food.y === ny;
+    var eatingSpecial = special && special.x === nx && special.y === ny;
+    var body = snake.slice(0, eating ? snake.length : snake.length - 1);
+    for (var j = 0; j < body.length; j++) if (body[j].x === nx && body[j].y === ny) { die(); return; }
+
+    snake.unshift({ x: nx, y: ny });
+    if (eating) {
+        score += 10; eaten++; eats++;
+        sEat();
+        tickMs = Math.max(62, baseTick - Math.floor(eats / 3) * 4);
+        spawnFood();
+        if (!special && Math.random() < 0.4) spawnSpecial();
+        if (eaten >= lv.goal) { levelComplete(); return; }
+    } else if (eatingSpecial) {
+        if (special.type === 'star') { score += 40; starCount++; sStar(); }
+        else if (special.type === 'slow') { score += 15; slowCount++; slowUntil = Date.now() + 6000; sSpecial(); }
+        else { score += 15; shrinkCount++; sSpecial();
+            var target = Math.max(3, snake.length - 4);
+            while (snake.length > target) snake.pop();
+        }
+        special = null;
+    } else {
+        snake.pop();
+    }
+    pulse = 1;
+    syncUI();
+}
+
+function levelComplete() {
+    var bonus = 50 + 25 * level;
+    score += bonus;
+    var unlocked = Math.min(24, level + 1);
+    if (unlocked > maxLevel) { maxLevel = unlocked; lsSet('desert-snake.max.v1', maxLevel); }
+    saveBest();
+    mode = 'levelup';
+    sLevel();
+    if (navigator.vibrate) { try { navigator.vibrate(20); } catch (e) {} }
+    document.getElementById('lvTitle').textContent = level >= 24 ? '🏆 أنهيت كل المستويات!' : '✅ المستوى ' + level + ' تم!';
+    document.getElementById('lvDetail').textContent = 'مكافأة +' + bonus + ' نقطة' + (level >= 24 ? ' · استمر في التحدي اللانهائي!' : ' · التالي: المستوى ' + (level + 1));
+    ovLevel.style.display = 'flex';
+    var next = level + 1;
+    setTimeout(function () {
+        if (mode !== 'levelup') return;
+        ovLevel.style.display = 'none';
+        scoreAtLevelStart = score;
+        startLevel(next, true);
+        mode = 'run';
+        lastStep = Date.now();
+        syncUI();
+    }, 1600);
+    syncUI();
+}
+
+function saveBest() {
+    var changed = false;
+    if (score > best.s) { best.s = score; changed = true; }
+    if (level > best.l) { best.l = level; changed = true; }
+    if (changed) lsSet('desert-snake.best.v1', best);
+    return changed;
+}
+
+function die() {
+    mode = 'over';
+    sCrash();
+    if (navigator.vibrate) { try { navigator.vibrate([40, 60, 40]); } catch (e) {} }
+    var isRecord = saveBest();
+    document.getElementById('ovScore').textContent = String(score);
+    document.getElementById('ovDetail').textContent =
+        'وصلت للمستوى ' + level + ' · أفضل نتيجة: ' + best.s + ' · أعلى مستوى: ' + best.l;
+    document.getElementById('ovRecord').style.display = isRecord ? 'block' : 'none';
+    ovOver.style.display = 'flex';
+    syncUI();
+}
+
+// ---------- input ----------
+var DIRS = { up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } };
+window.addEventListener('keydown', function (e) {
+    var k = e.key;
+    var d = k === 'ArrowUp' || k === 'w' || k === 'W' ? DIRS.up :
+            k === 'ArrowDown' || k === 's' || k === 'S' ? DIRS.down :
+            k === 'ArrowLeft' || k === 'a' || k === 'A' ? DIRS.left :
+            k === 'ArrowRight' || k === 'd' || k === 'D' ? DIRS.right : null;
+    if (d) { queueDir(d); e.preventDefault(); }
+    if ((k === ' ' || k === 'Enter') && mode === 'menu') { startRun(pickLevel); e.preventDefault(); }
+});
+var touchStart = null;
+cv.addEventListener('pointerdown', function (e) {
+    touchStart = { x: e.clientX, y: e.clientY };
+    try { cv.setPointerCapture(e.pointerId); } catch (er) {}
+});
+cv.addEventListener('pointermove', function (e) {
+    if (!touchStart) return;
+    var dx = e.clientX - touchStart.x, dy = e.clientY - touchStart.y;
+    if (Math.abs(dx) < 22 && Math.abs(dy) < 22) return;
+    if (Math.abs(dx) > Math.abs(dy)) queueDir(dx > 0 ? DIRS.right : DIRS.left);
+    else queueDir(dy > 0 ? DIRS.down : DIRS.up);
+    touchStart = { x: e.clientX, y: e.clientY };
+});
+cv.addEventListener('pointerup', function () { touchStart = null; });
+cv.addEventListener('pointercancel', function () { touchStart = null; });
+
+// ---------- drawing ----------
+function rr(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+}
+function drawStar(cx, cy, r, rot) {
+    ctx.beginPath();
+    for (var i = 0; i < 10; i++) {
+        var a = rot - Math.PI / 2 + i * Math.PI / 5, rad = i % 2 ? r * 0.45 : r;
+        ctx.lineTo(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad);
+    }
+    ctx.closePath();
+}
+function draw() {
+    if (!ctx) return;
+    var now = Date.now();
+    // board
+    ctx.fillStyle = '#f7f5f1'; ctx.fillRect(0, 0, W, W);
+    ctx.fillStyle = '#f1eee8';
+    for (var x = 0; x < G; x++) for (var y = 0; y < G; y++) {
+        if ((x + y) % 2 === 0) ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+    }
+    // walls
+    if (lv) {
+        ctx.fillStyle = '#2b303b';
+        lv.walls.forEach(function (wk) {
+            var p = wk.split(','), wx = +p[0] * CELL, wy = +p[1] * CELL;
+            ctx.fillRect(wx, wy, CELL + 0.5, CELL + 0.5);
+        });
+        ctx.fillStyle = 'rgba(255,255,255,0.07)';
+        lv.walls.forEach(function (wk) {
+            var p = wk.split(',');
+            ctx.fillRect(+p[0] * CELL + 2, +p[1] * CELL + 2, CELL - 4, 2.5);
+        });
+        // portals
+        lv.portals.forEach(function (p, pi) {
+            [['a', '#42a5f5'], ['b', '#ab47bc']].forEach(function (pair) {
+                var pt = p[pair[0]];
+                var cx = (pt.x + 0.5) * CELL, cy = (pt.y + 0.5) * CELL;
+                var rot = now / 350 + pi;
+                ctx.fillStyle = pair[1] + '33';
+                ctx.beginPath(); ctx.arc(cx, cy, CELL * 0.5, 0, 7); ctx.fill();
+                ctx.strokeStyle = pair[1];
+                ctx.lineWidth = Math.max(2.5, CELL * 0.13);
+                ctx.beginPath(); ctx.arc(cx, cy, CELL * 0.33, 0, 7); ctx.stroke();
+                ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+                ctx.lineWidth = Math.max(2, CELL * 0.09);
+                ctx.beginPath(); ctx.arc(cx, cy, CELL * 0.33, rot, rot + 1.4); ctx.stroke();
+                ctx.fillStyle = '#23272f';
+                ctx.beginPath(); ctx.arc(cx, cy, CELL * 0.11, 0, 7); ctx.fill();
+            });
+        });
+    }
+    // normal food: a date (تمرة)
+    if (food) {
+        var fx = (food.x + 0.5) * CELL, fy = (food.y + 0.5) * CELL;
+        ctx.save();
+        ctx.translate(fx, fy); ctx.rotate(0.5);
+        ctx.fillStyle = '#8d4a2b';
+        ctx.beginPath(); ctx.ellipse(0, 0, CELL * 0.22, CELL * 0.34, 0, 0, 7); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.25)';
+        ctx.beginPath(); ctx.ellipse(-CELL * 0.07, -CELL * 0.1, CELL * 0.06, CELL * 0.16, 0, 0, 7); ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = '#66bb6a';
+        ctx.fillRect(fx - 1.5, fy - CELL * 0.44, 3, CELL * 0.14);
+    }
+    // special food
+    if (special) {
+        var blink = special.until - now < 2000 ? (Math.floor(now / 160) % 2 === 0) : true;
+        if (blink) {
+            var sx = (special.x + 0.5) * CELL, sy = (special.y + 0.5) * CELL;
+            if (special.type === 'star') {
+                drawStar(sx, sy, CELL * 0.4, now / 600);
+                ctx.fillStyle = '#fbbf24'; ctx.fill();
+                ctx.strokeStyle = '#d97706'; ctx.lineWidth = 1.5; ctx.stroke();
+            } else if (special.type === 'slow') {
+                ctx.strokeStyle = '#42a5f5'; ctx.lineWidth = Math.max(2, CELL * 0.1);
+                ctx.beginPath();
+                ctx.moveTo(sx - CELL * 0.25, sy - CELL * 0.32); ctx.lineTo(sx + CELL * 0.25, sy - CELL * 0.32);
+                ctx.lineTo(sx - CELL * 0.25, sy + CELL * 0.32); ctx.lineTo(sx + CELL * 0.25, sy + CELL * 0.32);
+                ctx.closePath(); ctx.stroke();
+                ctx.fillStyle = '#42a5f5';
+                ctx.beginPath();
+                ctx.moveTo(sx - CELL * 0.12, sy + CELL * 0.26); ctx.lineTo(sx + CELL * 0.12, sy + CELL * 0.26); ctx.lineTo(sx, sy + CELL * 0.05);
+                ctx.closePath(); ctx.fill();
+            } else {
+                ctx.fillStyle = '#ab47bc';
+                ctx.beginPath();
+                ctx.moveTo(sx - CELL * 0.32, sy - CELL * 0.32); ctx.lineTo(sx - CELL * 0.06, sy); ctx.lineTo(sx - CELL * 0.32, sy + CELL * 0.32);
+                ctx.closePath(); ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(sx + CELL * 0.32, sy - CELL * 0.32); ctx.lineTo(sx + CELL * 0.06, sy); ctx.lineTo(sx + CELL * 0.32, sy + CELL * 0.32);
+                ctx.closePath(); ctx.fill();
+            }
+        }
+    }
+    // snake
+    if (snake.length) {
+        var slow = now < slowUntil;
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        function bodyPath() {
+            ctx.beginPath();
+            var px = (snake[0].x + 0.5) * CELL, py = (snake[0].y + 0.5) * CELL;
+            ctx.moveTo(px, py);
+            for (var i = 1; i < snake.length; i++) {
+                var qx = (snake[i].x + 0.5) * CELL, qy = (snake[i].y + 0.5) * CELL;
+                if (Math.abs(qx - px) > CELL * 1.5 || Math.abs(qy - py) > CELL * 1.5) ctx.moveTo(qx, qy);
+                else ctx.lineTo(qx, qy);
+                px = qx; py = qy;
+            }
+        }
+        ctx.strokeStyle = slow ? '#42a5f5' : '#26a69a';
+        ctx.lineWidth = CELL * 0.62;
+        bodyPath(); ctx.stroke();
+        // belly highlight
+        ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+        ctx.lineWidth = CELL * 0.24;
+        bodyPath(); ctx.stroke();
+        // head
+        var h = snake[0], hx = (h.x + 0.5) * CELL, hy = (h.y + 0.5) * CELL;
+        ctx.fillStyle = slow ? '#1d6fb8' : '#1d8a80';
+        ctx.beginPath(); ctx.arc(hx, hy, CELL * 0.44, 0, 7); ctx.fill();
+        var ex = dir.y !== 0 ? CELL * 0.18 : 0, ey = dir.x !== 0 ? CELL * 0.18 : 0;
+        var fx2 = dir.x * CELL * 0.12, fy2 = dir.y * CELL * 0.12;
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(hx + ex + fx2, hy + ey + fy2, CELL * 0.11, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.arc(hx - ex + fx2, hy - ey + fy2, CELL * 0.11, 0, 7); ctx.fill();
+        ctx.fillStyle = '#23272f';
+        ctx.beginPath(); ctx.arc(hx + ex + fx2 * 1.6, hy + ey + fy2 * 1.6, CELL * 0.055, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.arc(hx - ex + fx2 * 1.6, hy - ey + fy2 * 1.6, CELL * 0.055, 0, 7); ctx.fill();
+    }
+    if (pulse > 0) pulse -= 0.05;
+}
+function drawLoop() { draw(); requestAnimationFrame(drawLoop); }
+
+// ---------- UI ----------
+var pickLevel = 1;
+function buildStrip() {
+    var strip = document.getElementById('lvStrip');
+    strip.innerHTML = '';
+    var total = Math.min(24, maxLevel);
+    for (var i = 1; i <= 24; i++) {
+        (function (n) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'lv' + (n === pickLevel ? ' on' : '') + (n > total ? ' lock' : '');
+            b.textContent = String(n);
+            if (n <= total) b.addEventListener('click', function () {
+                pickLevel = n; sClick(); buildStrip();
+            });
+            strip.appendChild(b);
+        })(i);
+    }
+}
+function syncMute() {
+    var label = muted ? '🔇 الصوت' : '🔊 الصوت';
+    ['btnMute1', 'btnMute2', 'btnMute3'].forEach(function (id) {
+        var b = document.getElementById(id); if (b) b.textContent = label;
+    });
+}
+function toggleMute() {
+    muted = !muted;
+    lsSet('desert-snake.muted.v1', muted);
+    syncMute();
+    if (!muted) sClick();
+}
+['btnMute1', 'btnMute2', 'btnMute3'].forEach(function (id) {
+    document.getElementById(id).addEventListener('click', toggleMute);
+});
+document.getElementById('btnStart').addEventListener('click', function () { startRun(pickLevel); });
+document.getElementById('btnRetry').addEventListener('click', function () {
+    sClick();
+    score = scoreAtLevelStart;
+    startLevel(level, true);
+    mode = 'run';
+    ovOver.style.display = 'none';
+    lastStep = Date.now();
+    ensureTimer();
+    syncUI();
+});
+function goHome() {
+    sClick();
+    mode = 'menu';
+    ovOver.style.display = 'none';
+    ovLevel.style.display = 'none';
+    pickLevel = Math.min(pickLevel, maxLevel);
+    buildStrip();
+    ovStart.style.display = 'flex';
+    syncUI();
+}
+document.getElementById('btnHome').addEventListener('click', goHome);
+document.getElementById('btnHome2').addEventListener('click', goHome);
+
+// test hook (harmless): deterministic control for automated play-testing
+window.__snakeTest = {
+    state: function () {
+        return {
+            mode: mode, level: level, score: score, eaten: eaten, goal: lv ? lv.goal : 0,
+            tick: Math.round(tickMs), len: snake.length, head: snake[0] ? [snake[0].x, snake[0].y] : null,
+            dir: [dir.x, dir.y], food: food, special: special ? { x: special.x, y: special.y, type: special.type } : null,
+            portals: lv ? lv.portals.map(function (p) { return [p.a.x, p.a.y, p.b.x, p.b.y]; }) : [],
+            walls: lv ? lv.walls.size : 0, teleports: teleports, stars: starCount, slows: slowCount, shrinks: shrinkCount,
+            slowed: Date.now() < slowUntil
+        };
+    },
+    walls: function () { return lv ? Array.from(lv.walls) : []; },
+    body: function () { return snake.map(function (s) { return [s.x, s.y]; }); },
+    setDir: function (d) { if (DIRS[d]) queueDir(DIRS[d]); },
+    step: function () { step(); },
+    start: function (n) { pickLevel = n || 1; startRun(pickLevel); },
+    goto: function (n) { startLevel(n, false); mode = 'run'; ovStart.style.display = 'none'; ovOver.style.display = 'none'; ovLevel.style.display = 'none'; lastStep = Date.now(); ensureTimer(); },
+    forceSpecial: function (t) { spawnSpecial(t); },
+    die: function () { die(); }
+};
+
+resize();
+lv = buildLevel(1);
+pickLevel = 1;
+buildStrip();
+syncUI();
+syncMute();
+drawLoop();
+
+})();
+</script>
+</body>
+</html>
