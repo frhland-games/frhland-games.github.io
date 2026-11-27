@@ -118,6 +118,10 @@ body { background: var(--ds-page); }
 .ca-pick-col { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
 
 </style>
+<style>
+body.fs-pseudo { overflow: hidden; }
+body.fs-pseudo #root { position: fixed; inset: 0; z-index: 999; overflow-y: auto; background: #f4f2ef; }
+</style>
 </head>
 <body>
 <div id="root"></div>
@@ -24374,6 +24378,43 @@ body { background: var(--ds-page); }
       playPop();
       buzz(25);
     }
+    const [fsOn, setFsOn] = (0, import_react2.useState)(false);
+    (0, import_react2.useEffect)(() => {
+      const h = () => setFsOn(!!(document.fullscreenElement || document.webkitFullscreenElement) || document.body.classList.contains("fs-pseudo"));
+      document.addEventListener("fullscreenchange", h);
+      document.addEventListener("webkitfullscreenchange", h);
+      return () => { document.removeEventListener("fullscreenchange", h); document.removeEventListener("webkitfullscreenchange", h); };
+    }, []);
+    function pseudoFsActive() {
+      return document.body.classList.contains("fs-pseudo");
+    }
+    function syncFsLabel() {
+      setFsOn(!!(document.fullscreenElement || document.webkitFullscreenElement) || pseudoFsActive());
+    }
+    function pseudoSetFs(on) {
+      document.body.classList.toggle("fs-pseudo", on);
+      syncFsLabel();
+    }
+    function toggleFs() {
+      playPop();
+      if (pseudoFsActive()) { pseudoSetFs(false); return; }
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) {}
+        return;
+      }
+      const el = document.documentElement;
+      let ok = false;
+      try {
+        if (el.requestFullscreen) {
+          const r = el.requestFullscreen();
+          ok = true;
+          if (r && r.catch) r.catch(() => pseudoSetFs(true));
+        } else if (el.webkitRequestFullscreen) { el.webkitRequestFullscreen(); ok = true; }
+      } catch (e) { ok = false; }
+      if (!ok) pseudoSetFs(true);
+      else setTimeout(() => { if (!(document.fullscreenElement || document.webkitFullscreenElement) && !pseudoFsActive()) pseudoSetFs(true); }, 600);
+      syncFsLabel();
+    }
     function toggleMute() {
       const next = !mutedRef.current;
       mutedRef.current = next;
@@ -24597,7 +24638,8 @@ body { background: var(--ds-page); }
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "file-button is-compact", "data-variant": "secondary", onClick: () => setRot(DEFAULT_ROT), children: "\u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u0639\u0631\u0636" }),
         /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "file-button is-compact", "data-variant": "secondary", onClick: () => start(level), children: "\u0645\u0633\u062A\u0648\u0649 \u062C\u062F\u064A\u062F" }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "file-button is-compact", "data-variant": "secondary", onClick: toggleMute, "aria-pressed": muted, children: muted ? "\u{1F507} \u0627\u0644\u0635\u0648\u062A" : "\u{1F50A} \u0627\u0644\u0635\u0648\u062A" })
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "file-button is-compact", "data-variant": "secondary", onClick: toggleMute, "aria-pressed": muted, children: muted ? "\u{1F507} \u0627\u0644\u0635\u0648\u062A" : "\u{1F50A} \u0627\u0644\u0635\u0648\u062A" }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "file-button is-compact", "data-variant": "secondary", onClick: toggleFs, "aria-pressed": fsOn, children: fsOn ? "\u2715 \u062E\u0631\u0648\u062C" : "\u26F6 \u0645\u0644\u0621 \u0627\u0644\u0634\u0627\u0634\u0629" })
       ] }),
       !shim.current && levelSaved.message && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ca-saved-note", children: levelSaved.message })
     ] });
