@@ -20,6 +20,11 @@ h1 { text-align:center; font-size:27px; margin:6px 0 2px; }
 .chip b { display:block; font-size:18px; line-height:1.25; }
 .chip span { font-size:11px; color:var(--ink2); }
 .modeline { text-align:center; font-size:12px; color:var(--ink2); margin-bottom:8px; min-height:16px; }
+.clueline { text-align:center; font-size:13px; background:#f9f7f2; border:1px solid var(--hair); border-radius:12px; padding:7px 10px; margin-bottom:8px; line-height:1.7; }
+.pattern { display:flex; gap:8px; direction:rtl; justify-content:center; margin-bottom:10px; }
+.pcell { width:34px; height:38px; border-bottom:3px solid #c9c4ba; display:flex; align-items:center; justify-content:center; font-size:21px; font-weight:700; color:#b9b4ac; }
+.pcell.on { border-color:var(--green); color:var(--ink); }
+.btn:disabled { opacity:.45; }
 .board { display:flex; flex-direction:column; gap:6px; align-items:center; margin-bottom:12px; }
 .wrow { display:flex; gap:6px; direction:rtl; }
 .cell {
@@ -85,7 +90,7 @@ body.fs-pseudo .card { position:fixed; inset:0; max-width:none; z-index:999; ove
 <body>
 <div class="card">
     <h1>خمّن الكلمة</h1>
-    <div class="sub">كلمة عربية من ٥ حروف، عندك ٦ محاولات. كلمة جديدة كل يوم!</div>
+    <div class="sub">كلمة عربية من ٥ حروف و٦ محاولات، مع تلميح وحروف دليلية. كلمة جديدة كل يوم!</div>
     <div class="stats">
         <div class="chip"><b id="uiPlayed">0</b><span>لعبت</span></div>
         <div class="chip"><b id="uiWon">0</b><span>فزت</span></div>
@@ -93,14 +98,17 @@ body.fs-pseudo .card { position:fixed; inset:0; max-width:none; z-index:999; ove
         <div class="chip"><b id="uiMax">0</b><span>أفضل سلسلة</span></div>
     </div>
     <div class="modeline" id="modeLine"></div>
+    <div class="clueline" id="clueLine"></div>
+    <div class="pattern" id="pattern"></div>
     <div class="board" id="board"></div>
     <div class="kbd" id="kbd"></div>
     <div class="controls">
         <button type="button" class="btn" id="btnMute">🔊 الصوت</button>
         <button type="button" class="btn" id="btnFs">⛶ ملء الشاشة</button>
+        <button type="button" class="btn" id="btnHint">💡 حرف (٢)</button>
         <button type="button" class="btn" id="btnPractice">🎯 تدريب</button>
     </div>
-    <div class="hintline">🟩 الحرف صحيح وفي مكانه · 🟨 موجود بمكان آخر · ⬜ غير موجود<br>اكتب أي كلمة من ٥ حروف وجرب حظك!</div>
+    <div class="hintline">🟩 الحرف صحيح وفي مكانه · 🟨 موجود بمكان آخر · ⬜ غير موجود<br>الحروف الدليلية في الأعلى هدية لك، وزر 💡 يكشف حرفاً إضافياً!</div>
 </div>
 <div class="overlay" id="ovEnd" style="display:none">
     <div class="panel">
@@ -156,24 +164,41 @@ function sLose() { tone(300, 0.3, 'sine', 0.1, 180); tone(220, 0.35, 'sine', 0.0
 
 // ---------- word list (original selection, common 5-letter Arabic words) ----------
 var WORDS = [
-    'كتابة','مدرسة','سيارة','طائرة','حديقة','صحراء','بحيرة','اشجار','كواكب','مجرات',
-    'شمسية','سحابة','عاصفة','انهار','اودية','بقرات','غزلان','نعامة','حمامة','عصفور',
-    'اسماك','حيتان','ثعالب','زرافة','تمساح','سحلية','تفاحة','رمانة','بطيخة','طماطم',
-    'منازل','ابواب','جدران','نافذة','مطابخ','طاولة','كراسي','مكاتب','مصباح','سجادة',
-    'وسادة','شراشف','مرايا','ابراج','اسواق','متاجر','مكتبة','فنادق','محطات','جزيرة',
-    'غابات','مزرعة','سلسلة','خواتم','اقفال','مفتاح','قافلة','واحات','كثبان','فانوس',
-    'مراكب','سفينة','قوارب','مجداف','اشرعة','مرساة','بوصلة','خريطة','احجار','اضواء',
-    'اصوات','الوان','اقلام','اوراق','دفاتر','ممحاة','مسطرة','حقيبة','مقاعد','سبورة',
-    'حاسوب','شاشات','هواتف','اجهزة','تلفاز','راديو','ارواح','افكار','احلام','احزان',
-    'مخاوف','سلامة','عدالة','حريات','معرفة','ثقافة','تاريخ','حضارة','اوقات','اسبوع',
-    'سنوات','لحظات','دقيقة','ساعات','ليالي','ظهيرة','مغارب','امهات','اخوان','اخوات',
-    'اولاد','اجداد','اعمام','اخوال','اصحاب','جيران','عايلة','قبيلة','ملكات','امراء',
-    'اطباء','ممرضة','مهندس','محامي','ايادي','افواه','العاب','رياضة','سباحة','قراءة',
-    'لوحات','اغنية','قصيدة','حكاية','رواية','مجلات','جريدة','رسالة','ارقام','اعداد',
-    'مبالغ','دينار','دراهم','اسعار','هدايا','جائزة','تعليم','تدريب','تفكير','تخطيط',
-    'تنظيم','تصميم','برمجة','سياحة','رحلات','زيارة','ضيافة','شواطي','مواني','نجارة',
-    'حدادة','خياطة','سناجب','مخدات','اواني','معادن','جواهر','عطارة','مباخر','ورقات',
-    'اعشاب','اقمشة'
+    {w:'كتابة',c:'ما يفعله الكاتب بالقلم'},{w:'مدرسة',c:'يذهب إليها التلاميذ كل صباح'},{w:'سيارة',c:'وسيلة نقل بأربع عجلات'},{w:'طائرة',c:'تقلع من المطار'},{w:'حديقة',c:'مساحة خضراء للتنزه'},
+    {w:'صحراء',c:'أرض الرمال الواسعة'},{w:'بحيرة',c:'ماء تحيط به اليابسة'},{w:'اشجار',c:'تظلل الناس وتثمر'},{w:'كواكب',c:'تدور حول الشمس'},{w:'مجرات',c:'عوالم هائلة من النجوم'},
+    {w:'شمسية',c:'تفتحها وقت المطر'},{w:'سحابة',c:'تحمل المطر في السماء'},{w:'عاصفة',c:'ريح شديدة مدمرة'},{w:'انهار',c:'مياه عذبة جارية'},{w:'اودية',c:'مجاري المطر بين الجبال'},
+    {w:'بقرات',c:'مصدر الحليب'},{w:'غزلان',c:'حيوانات رشيقة سريعة العدو'},{w:'نعامة',c:'طائر ضخم لا يطير'},{w:'حمامة',c:'طائر يرمز للسلام'},{w:'عصفور',c:'يغرد على الأغصان'},
+    {w:'اسماك',c:'تعيش في الماء'},{w:'حيتان',c:'أضخم سكان المحيط'},{w:'ثعالب',c:'حيوانات ذكية ماكره'},{w:'زرافة',c:'صاحبة أطول رقبة'},{w:'تمساح',c:'زاحف الأنهار المفترس'},
+    {w:'سحلية',c:'زاحف صغير يتسلق الجدران'},{w:'تفاحة',c:'فاكهة حمراء مشهورة'},{w:'رمانة',c:'حبّها أحمر كالمرجان'},{w:'بطيخة',c:'فاكهة الصيف المنعشة'},{w:'طماطم',c:'أساس السلطة والصلصة'},
+    {w:'منازل',c:'بيوت السكن'},{w:'ابواب',c:'مداخل البيوت'},{w:'جدران',c:'تقوم عليها البيوت'},{w:'نافذة',c:'تطل منها على الخارج'},{w:'مطابخ',c:'أماكن إعداد الطعام'},
+    {w:'طاولة',c:'تجتمع عليها الأسرة للطعام'},{w:'كراسي',c:'نجلس عليها'},{w:'مكاتب',c:'أماكن العمل والدراسة'},{w:'مصباح',c:'يضيء المكان'},{w:'سجادة',c:'تفرش بها الأرض'},
+    {w:'وسادة',c:'تحت رأسك عند النوم'},{w:'شراشف',c:'أغطية الأسرة'},{w:'مرايا',c:'تعكس الصور'},{w:'ابراج',c:'مبانٍ شاهقة الارتفاع'},{w:'اسواق',c:'أماكن التسوق'},
+    {w:'متاجر',c:'محلات بيع البضائع'},{w:'مكتبة',c:'بيت الكتب'},{w:'فنادق',c:'سكن المسافرين'},{w:'محطات',c:'مواقف القطارات والحافلات'},{w:'جزيرة',c:'يابسة يحيط بها الماء'},
+    {w:'غابات',c:'أرض واسعة كثيفة الأشجار'},{w:'مزرعة',c:'أرض للزراعة وتربية الحيوان'},{w:'سلسلة',c:'حلقات متصلة من معدن'},{w:'خواتم',c:'حليّ الأصابع'},{w:'اقفال',c:'تحمي الأبواب'},
+    {w:'مفتاح',c:'يفتح الأقفال'},{w:'قافلة',c:'ركب يسير في السفر'},{w:'واحات',c:'خضرة وسط الصحراء'},{w:'كثبان',c:'تلال من الرمل'},{w:'فانوس',c:'مصباح رمضان الشهير'},
+    {w:'مراكب',c:'تسير على الماء'},{w:'سفينة',c:'تعبر المحيطات'},{w:'قوارب',c:'مراكب صغيرة'},{w:'مجداف',c:'تحرك به القارب'},{w:'اشرعة',c:'تلتقط الريح لدفع السفينة'},
+    {w:'مرساة',c:'تثبت السفينة في قاع البحر'},{w:'بوصلة',c:'تدل على الاتجاهات'},{w:'خريطة',c:'رسم يوضح الأماكن'},{w:'احجار',c:'قطع من الصخر'},{w:'اضواء',c:'تبدد الظلام'},
+    {w:'اصوات',c:'نلتقطها بالأذن'},{w:'الوان',c:'الأحمر والأخضر والأزرق'},{w:'اقلام',c:'أدوات الكتابة'},{w:'اوراق',c:'صفحات للكتابة'},{w:'دفاتر',c:'كراسات المدرسة'},
+    {w:'ممحاة',c:'تزيل الخطأ المكتوب'},{w:'مسطرة',c:'لقياس ورسم الخطوط'},{w:'حقيبة',c:'تحمل فيها أغراضك'},{w:'مقاعد',c:'أماكن الجلوس'},{w:'سبورة',c:'يكتب عليها المعلم'},
+    {w:'حاسوب',c:'جهاز الكمبيوتر'},{w:'شاشات',c:'تعرض الصور والمشاهد'},{w:'هواتف',c:'أجهزة الاتصال'},{w:'اجهزة',c:'معدات إلكترونية متنوعة'},{w:'تلفاز',c:'جهاز مشاهدة البرامج'},
+    {w:'راديو',c:'جهاز سماع الإذاعة'},{w:'ارواح',c:'نفوس البشر'},{w:'افكار',c:'ثمار العقل'},{w:'احلام',c:'ما نراه في المنام'},{w:'احزان',c:'عكس الأفراح'},
+    {w:'مخاوف',c:'مشاعر القلق والخوف'},{w:'سلامة',c:'النجاة من الأذى'},{w:'عدالة',c:'إعطاء كل ذي حق حقه'},{w:'حريات',c:'حقوق لا تُصادر'},{w:'معرفة',c:'ثمرة التعلم والقراءة'},
+    {w:'ثقافة',c:'فنون وآداب الأمم'},{w:'تاريخ',c:'سجل أحداث الماضي'},{w:'حضارة',c:'عمران وفن الشعوب'},{w:'اوقات',c:'الأزمنة والساعات'},{w:'اسبوع',c:'سبعة أيام'},
+    {w:'سنوات',c:'أعوام متتالية'},{w:'لحظات',c:'أقصر وحدات الزمن إحساساً'},{w:'دقيقة',c:'ستون ثانية'},{w:'ساعات',c:'عددها ٢٤ في اليوم'},{w:'ليالي',c:'أوقات الظلام والسكون'},
+    {w:'ظهيرة',c:'منتصف النهار'},{w:'مغارب',c:'أوقات غروب الشمس'},{w:'امهات',c:'رمز الحنان'},{w:'اخوان',c:'إخوتك الذكور'},{w:'اخوات',c:'أخواتك الإناث'},
+    {w:'اولاد',c:'أبناء العائلة'},{w:'اجداد',c:'آباء الآباء'},{w:'اعمام',c:'إخوة الأب'},{w:'اخوال',c:'إخوة الأم'},{w:'اصحاب',c:'رفاق الدرب'},
+    {w:'جيران',c:'سكان البيوت المجاورة'},{w:'عايلة',c:'الأسرة'},{w:'قبيلة',c:'تجمع عائلي كبير'},{w:'ملكات',c:'زوجات الملوك'},{w:'امراء',c:'أبناء الملوك'},
+    {w:'اطباء',c:'يعالجون المرضى'},{w:'ممرضة',c:'تعين الطبيب في العناية'},{w:'مهندس',c:'يصمم المباني والآلات'},{w:'محامي',c:'يدافع في المحاكم'},{w:'ايادي',c:'نمسك ونعمل بها'},
+    {w:'افواه',c:'نأكل ونتحدث بها'},{w:'العاب',c:'وسائل التسلية واللعب'},{w:'رياضة',c:'نشاط بدني ككرة القدم'},{w:'سباحة',c:'رياضة الماء'},{w:'قراءة',c:'مطالعة الكتب'},
+    {w:'لوحات',c:'يرسمها الفنانون'},{w:'اغنية',c:'كلمات مع لحن'},{w:'قصيدة',c:'كلام موزون مقفى'},{w:'حكاية',c:'قصة تروى قبل النوم'},{w:'رواية',c:'قصة طويلة في كتاب'},
+    {w:'مجلات',c:'تصدر كل أسبوع أو شهر'},{w:'جريدة',c:'صحيفة أخبار اليوم'},{w:'رسالة',c:'خطاب تبعثه لمن تحب'},{w:'ارقام',c:'رموز العد والحساب'},{w:'اعداد',c:'مرادف الأرقام'},
+    {w:'مبالغ',c:'قيم من المال'},{w:'دينار',c:'عملة الكويت'},{w:'دراهم',c:'عملة الإمارات'},{w:'اسعار',c:'قيمة ما تشتريه'},{w:'هدايا',c:'تقدمها في المناسبات'},
+    {w:'جائزة',c:'مكافأة الفائز'},{w:'تعليم',c:'ما تتلقاه في المدرسة'},{w:'تدريب',c:'تمرين لإتقان مهارة'},{w:'تفكير',c:'عمل العقل'},{w:'تخطيط',c:'ترتيب الخطوات قبل العمل'},
+    {w:'تنظيم',c:'ترتيب الأشياء والمهام'},{w:'تصميم',c:'رسم شكل الشيء قبل صنعه'},{w:'برمجة',c:'كتابة أوامر الحاسوب'},{w:'سياحة',c:'سفر بهدف المتعة'},{w:'رحلات',c:'أسفار وتنقلات'},
+    {w:'زيارة',c:'ذهابك لرؤية شخص أو مكان'},{w:'ضيافة',c:'كرم استقبال الضيوف'},{w:'شواطي',c:'رمال حواف البحر'},{w:'مواني',c:'ترسو فيها السفن'},{w:'نجارة',c:'حرفة العمل بالخشب'},
+    {w:'حدادة',c:'حرفة العمل بالحديد'},{w:'خياطة',c:'حرفة صنع الملابس'},{w:'سناجب',c:'تحب البندق والجوز'},{w:'مخدات',c:'وسائد صغيرة للكنب'},{w:'اواني',c:'تطبخ وتقدم فيها الطعام'},
+    {w:'معادن',c:'كالذهب والحديد'},{w:'جواهر',c:'أحجار كريمة ثمينة'},{w:'عطارة',c:'محل بيع الأعشاب والتوابل'},{w:'مباخر',c:'توضع فيها العود والبخور'},{w:'ورقات',c:'قطع صغيرة من الورق'},
+    {w:'اعشاب',c:'نباتات عطرية وطبية'},{w:'اقمشة',c:'تصنع منها الملابس'}
 ];
 // fix: keep only normalized-5 unique entries (validated at build time)
 function norm(w) {
@@ -181,9 +206,9 @@ function norm(w) {
 }
 WORDS = (function () {
     var seen = {}, out = [];
-    WORDS.forEach(function (w) {
-        var n = norm(w);
-        if (n.length === 5 && !seen[n]) { seen[n] = 1; out.push(n); }
+    WORDS.forEach(function (e) {
+        var n = norm(e.w);
+        if (n.length === 5 && !seen[n]) { seen[n] = 1; out.push({ w: n, c: e.c }); }
     });
     return out;
 })();
@@ -191,12 +216,13 @@ WORDS = (function () {
 // ---------- day / word ----------
 var KWT = 3 * 3600e3;
 function todayIndex() { return Math.floor((Date.now() + KWT) / 86400e3); }
-function dailyWord() { return WORDS[todayIndex() % WORDS.length]; }
+function dailyEntry() { return WORDS[todayIndex() % WORDS.length]; }
 
 // ---------- state ----------
 var ROWS = 6, COLS = 5;
 var mode = 'daily'; // daily | practice
-var solution = '', guesses = [], cur = '', status = 'playing'; // playing | won | lost
+var solution = '', clue = '', guesses = [], cur = '', status = 'playing'; // playing | won | lost
+var revealed = [], hintLeft = 2;
 var keyState = {}; // letter -> 'green'|'amber'|'gray' (best)
 var board = document.getElementById('board'), kbd = document.getElementById('kbd');
 var modeLine = document.getElementById('modeLine');
@@ -305,7 +331,7 @@ function toast(msg) {
 }
 
 function saveDaily() {
-    if (mode === 'daily') lsSet('desert-word.daily.v1', { day: todayIndex(), guesses: guesses, status: status });
+    if (mode === 'daily') lsSet('desert-word.daily.v1', { day: todayIndex(), guesses: guesses, status: status, revealed: revealed, hintLeft: hintLeft });
 }
 function syncStats() {
     document.getElementById('uiPlayed').textContent = String(stats.played);
@@ -349,6 +375,7 @@ function submit() {
     saveDaily();
     syncStats();
     renderCurrent();
+    syncHint();
 }
 
 function press(k) {
@@ -366,6 +393,38 @@ window.addEventListener('keydown', function (e) {
     if (e.key === 'Backspace') { cur = cur.slice(0, -1); renderCurrent(); e.preventDefault(); return; }
     if (/^[\u0621-\u064A]$/.test(e.key)) press(e.key);
 });
+
+// ---------- hint letters ----------
+function seedPos(d) { return (d * 3 + 1) % COLS; } // deterministic free letter for the daily word
+function renderPattern() {
+    var p = document.getElementById('pattern');
+    p.innerHTML = '';
+    for (var i = 0; i < COLS; i++) {
+        var d = document.createElement('div');
+        var on = revealed.indexOf(i) >= 0;
+        d.className = 'pcell' + (on ? ' on' : '');
+        d.textContent = on ? solution[i] : 'ـ';
+        p.appendChild(d);
+    }
+}
+function syncHint() {
+    var b = document.getElementById('btnHint');
+    b.textContent = '💡 حرف (' + hintLeft + ')';
+    b.disabled = status !== 'playing' || hintLeft <= 0 || revealed.length >= COLS - 1;
+}
+function useHint() {
+    if (status !== 'playing' || hintLeft <= 0 || revealed.length >= COLS - 1) return;
+    var pool = [];
+    for (var i = 0; i < COLS; i++) if (revealed.indexOf(i) < 0) pool.push(i);
+    revealed.push(pool[(Math.random() * pool.length) | 0]);
+    hintLeft--;
+    sKey();
+    renderPattern();
+    syncHint();
+    saveDaily();
+    toast('انكشف حرف جديد في الأعلى');
+}
+document.getElementById('btnHint').addEventListener('click', useHint);
 
 // ---------- end overlay / countdown / share ----------
 var cdTimer = null;
@@ -432,27 +491,39 @@ document.getElementById('btnClose').addEventListener('click', function () {
 // ---------- modes ----------
 function startDaily() {
     mode = 'daily';
-    solution = dailyWord();
+    var e = dailyEntry();
+    solution = e.w; clue = e.c;
     guesses = []; cur = ''; status = 'playing'; keyState = {};
+    revealed = [seedPos(todayIndex())]; hintLeft = 2;
     if (daily && daily.day === todayIndex()) {
         guesses = daily.guesses || [];
         status = daily.status || 'playing';
+        if (daily.revealed && daily.revealed.length) revealed = daily.revealed;
+        if (typeof daily.hintLeft === 'number') hintLeft = daily.hintLeft;
     }
+    document.getElementById('clueLine').textContent = '💡 ' + clue;
     buildBoard(); buildKbd();
     restoreGuesses();
     renderCurrent();
+    renderPattern();
+    syncHint();
     if (status !== 'playing') setTimeout(function () { endOverlay(status === 'won'); }, 600);
     syncStats();
 }
 function startPractice() {
     sKey();
     mode = 'practice';
-    solution = WORDS[(Math.random() * WORDS.length) | 0];
+    var e = WORDS[(Math.random() * WORDS.length) | 0];
+    solution = e.w; clue = e.c;
     guesses = []; cur = ''; status = 'playing'; keyState = {};
+    revealed = [(Math.random() * COLS) | 0]; hintLeft = 2;
+    document.getElementById('clueLine').textContent = '💡 ' + clue;
     document.getElementById('ovEnd').style.display = 'none';
     clearInterval(cdTimer);
     buildBoard(); buildKbd();
     renderCurrent();
+    renderPattern();
+    syncHint();
     syncStats();
 }
 document.getElementById('btnPractice').addEventListener('click', function () {
@@ -510,7 +581,9 @@ window.__wordTest = {
     type: function (w) { for (var i = 0; i < w.length; i++) press(w[i]); },
     enter: function () { submit(); },
     practice: function () { startPractice(); },
-    gradeOf: function (g) { return grade(norm(g), solution); }
+    gradeOf: function (g) { return grade(norm(g), solution); },
+    hint: function () { useHint(); },
+    hintInfo: function () { return { revealed: revealed.slice(), left: hintLeft, clue: clue, sol: solution }; }
 };
 
 buildBoard();
