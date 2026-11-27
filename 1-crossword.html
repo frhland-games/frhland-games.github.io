@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>الكلمات المتقاطعة</title>
+<style>
+:root { --page:#f4f2ef; --ink:#23272f; --ink2:#6b7280; --hair:#e6e3de; --green:#66bb6a; --amber:#fb8c00; --red:#ef5350; }
+* { box-sizing:border-box; }
+html,body { margin:0; padding:0; background:var(--page); }
+body {
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,"Noto Kufi Arabic","Noto Sans Arabic",Arial,sans-serif;
+    color:var(--ink); display:flex; justify-content:center;
+}
+.card { max-width:480px; width:100%; background:#fff; min-height:100vh; padding:16px 12px 26px; box-shadow:0 0 24px rgba(20,25,40,.06); }
+h1 { text-align:center; font-size:25px; margin:6px 0 2px; }
+.sub { text-align:center; font-size:13px; color:var(--ink2); margin-bottom:10px; }
+.stats { display:flex; gap:8px; margin-bottom:10px; }
+.chip { flex:1; border:1px solid var(--hair); border-radius:14px; padding:6px 4px; text-align:center; }
+.chip b { display:block; font-size:18px; line-height:1.25; }
+.chip span { font-size:11px; color:var(--ink2); }
+.modeline { text-align:center; font-size:12px; color:var(--ink2); margin-bottom:8px; min-height:16px; }
+.xgrid { display:grid; grid-template-columns:repeat(9,1fr); gap:2px; direction:rtl; margin-bottom:10px; }
+.xcell {
+    position:relative; aspect-ratio:1; background:#fff; border:1px solid #d8d4cc; border-radius:4px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:16px; font-weight:700; cursor:pointer; user-select:none; -webkit-user-select:none;
+    transition:background .15s;
+}
+.xcell.black { background:var(--ink); border-color:var(--ink); cursor:default; }
+.xcell .num { position:absolute; top:0; right:2px; font-size:8px; font-weight:400; color:var(--ink2); line-height:1.5; }
+.xcell.word { background:#fdf0d5; }
+.xcell.sel { background:#ffd98a; border-color:var(--amber); }
+.xcell.bad { background:var(--red) !important; border-color:var(--red); color:#fff; }
+.cluebar { display:flex; gap:8px; align-items:center; background:#f9f7f2; border:1px solid var(--hair); border-radius:12px; padding:8px 10px; margin-bottom:10px; min-height:44px; }
+.cluebar .txt { flex:1; font-size:13px; line-height:1.6; }
+.cluebar .txt b { color:var(--amber); }
+.cluebar .sw { font-family:inherit; font-size:12px; border:1px solid var(--hair); background:#fff; border-radius:9px; padding:6px 9px; cursor:pointer; white-space:nowrap; }
+.kbd { display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+.krow { display:flex; gap:4px; direction:rtl; justify-content:center; }
+.key {
+    flex:1; max-width:44px; height:48px; border:1px solid var(--hair); border-radius:8px;
+    background:#f1eee9; font-family:inherit; font-size:17px; font-weight:600; color:var(--ink); cursor:pointer;
+    display:flex; align-items:center; justify-content:center; padding:0;
+}
+.key:active { transform:scale(.94); }
+.key.wide { max-width:64px; font-size:15px; }
+.controls { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:6px; }
+.btn {
+    font-family:inherit; font-size:15px; padding:10px 14px; border-radius:12px;
+    border:1px solid var(--hair); background:#fff; color:var(--ink); cursor:pointer;
+}
+.btn:active { transform:scale(.97); }
+.btn.primary { background:var(--ink); color:#fff; border-color:var(--ink); font-weight:700; }
+.btn:disabled { opacity:.45; }
+.clues { display:flex; gap:8px; margin-top:12px; }
+.clist { flex:1; max-height:190px; overflow-y:auto; border:1px solid var(--hair); border-radius:12px; padding:8px 10px; background:#fff; }
+.clist h3 { font-size:13px; margin:0 0 4px; color:var(--ink2); font-weight:700; }
+.clist .ci { font-size:12.5px; line-height:1.9; cursor:pointer; }
+.clist .ci.done { color:#b9b4ac; text-decoration:line-through; }
+.clist .ci.act { color:var(--amber); font-weight:700; }
+.hintline { text-align:center; font-size:12.5px; color:var(--ink2); margin-top:10px; line-height:1.8; }
+.overlay {
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(244,242,239,.8); backdrop-filter:blur(3px); z-index:40; padding:14px;
+}
+.panel {
+    background:#fff; border:1px solid var(--hair); border-radius:18px; padding:18px 22px;
+    text-align:center; box-shadow:0 12px 32px rgba(20,25,40,.14);
+    display:flex; flex-direction:column; gap:9px; min-width:250px; max-width:92%;
+}
+.panel .t { font-size:22px; font-weight:700; }
+.panel .d { font-size:13px; color:var(--ink2); line-height:1.8; }
+.panel .cd { font-size:15px; font-weight:700; color:var(--ink); direction:ltr; }
+.toast {
+    position:fixed; top:14px; right:50%; transform:translateX(50%);
+    background:var(--ink); color:#fff; border-radius:10px; padding:9px 16px; font-size:13.5px;
+    z-index:60; opacity:0; transition:opacity .25s; pointer-events:none; max-width:88%;
+}
+.toast.on { opacity:1; }
+body.fs-pseudo { overflow:hidden; }
+body.fs-pseudo .card { position:fixed; inset:0; max-width:none; z-index:999; overflow-y:auto; min-height:0; }
+.card:fullscreen { max-width:none; overflow-y:auto; }
+</style>
+</head>
+<body>
+<div class="card">
+    <h1>الكلمات المتقاطعة</h1>
+    <div class="sub">اضغط خانة واكتب الحروف. لغز جديد كل يوم!</div>
+    <div class="stats">
+        <div class="chip"><b id="uiPlayed">0</b><span>لعبت</span></div>
+        <div class="chip"><b id="uiWon">0</b><span>حللت</span></div>
+        <div class="chip"><b id="uiStreak">0</b><span>السلسلة</span></div>
+        <div class="chip"><b id="uiMax">0</b><span>أفضل سلسلة</span></div>
+    </div>
+    <div class="modeline" id="modeLine"></div>
+    <div class="xgrid" id="xgrid"></div>
+    <div class="cluebar">
+        <div class="txt" id="clueTxt">اختر خانة من الشبكة</div>
+        <button type="button" class="sw" id="btnDir">⇄ أفقي</button>
+    </div>
+    <div class="kbd" id="kbd"></div>
+    <div class="controls">
+        <button type="button" class="btn" id="btnHint">💡 حرف (٣)</button>
+        <button type="button" class="btn" id="btnCheck">✓ تحقق</button>
+        <button type="button" class="btn" id="btnMute">🔊 الصوت</button>
+        <button type="button" class="btn" id="btnFs">⛶ ملء الشاشة</button>
+        <button type="button" class="btn" id="btnPractice">🎲 لغز آخر</button>
+    </div>
+    <div class="clues">
+        <div class="clist" id="listA"><h3>أفقي</h3></div>
+        <div class="clist" id="listD"><h3>عمودي</h3></div>
+    </div>
+    <div class="hintline">أفقي: من اليمين إلى اليسار · عمودي: من الأعلى إلى الأسفل<br>اضغط ✓ تحقق لكشف الحروف الخاطئة، و💡 يكشف حرفاً صحيحاً</div>
+</div>
+<div class="overlay" id="ovEnd" style="display:none">
+    <div class="panel">
+        <div class="t" id="endTitle">🎉 أحسنت!</div>
+        <div class="d" id="endDetail"></div>
+        <div class="d" id="cdLabel">لغز الغد بعد:</div>
+        <div class="cd" id="endCount">--:--:--</div>
+        <button type="button" class="btn primary" id="btnNext">🎲 لغز آخر</button>
+        <button type="button" class="btn" id="btnClose">إغلاق</button>
+    </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+'use strict';
+(function () {
+
+// ---------- storage ----------
+function lsGet(k, d) { try { var v = window.localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
+function lsSet(k, v) { try { window.localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* no storage */ } }
+var stats = lsGet('desert-xword.stats.v1', { played: 0, won: 0, streak: 0, max: 0 });
+var muted = !!lsGet('desert-xword.muted.v1', false);
+
+// ---------- audio ----------
+var AC = null;
+function audio() {
+    if (muted) return null;
+    try {
+        if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+        if (AC.state === 'suspended') AC.resume();
+        return AC;
+    } catch (e) { return null; }
+}
+function tone(freq, dur, type, vol, slideTo, when) {
+    var ctx = audio(); if (!ctx) return;
+    var t = ctx.currentTime + (when || 0);
+    var o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type || 'triangle';
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(30, slideTo), t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol || 0.12, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(t); o.stop(t + dur + 0.05);
+}
+function sKey() { tone(600, 0.05, 'triangle', 0.06, 520); }
+function sCheck() { tone(500, 0.07, 'sine', 0.09, 650); }
+function sBad() { tone(240, 0.18, 'sine', 0.08, 150); }
+function sWin() { [523, 659, 784, 1046].forEach(function (f, i) { tone(f, 0.15, 'sine', 0.12, null, i * 0.11); }); }
+
+// ---------- data ----------
+var PUZZLES = [{"mask":["...##...#","##.####.#","#...#...#","###...###","#...#...#","###...###","#...#...#","#.####.##","#...##..."],"words":[{"dir":"a","r":0,"c":0,"len":3,"word":"لعب","clue":"تسلية"},{"dir":"a","r":0,"c":5,"len":3,"word":"فرح","clue":"عكس الحزن"},{"dir":"a","r":2,"c":1,"len":3,"word":"بقر","clue":"مصدر الحليب"},{"dir":"a","r":2,"c":5,"len":3,"word":"صوت","clue":"نسمعه"},{"dir":"a","r":3,"c":3,"len":3,"word":"ملح","clue":"بهار الطعام"},{"dir":"a","r":4,"c":1,"len":3,"word":"هوا","clue":"نتنفسه"},{"dir":"a","r":4,"c":5,"len":3,"word":"اذن","clue":"نسمع بها"},{"dir":"a","r":5,"c":3,"len":3,"word":"نسر","clue":"جارح ضخم"},{"dir":"a","r":6,"c":1,"len":3,"word":"شفة","clue":"تحيط بالفم"},{"dir":"a","r":6,"c":5,"len":3,"word":"يوم","clue":"أربع وعشرون ساعة"},{"dir":"a","r":8,"c":1,"len":3,"word":"رقص","clue":"حركات مع النغم"},{"dir":"a","r":8,"c":6,"len":3,"word":"درج","clue":"مراتب الصعود"},{"dir":"d","r":6,"c":1,"len":3,"word":"شعر","clue":"كلام موزون مقفى"},{"dir":"d","r":0,"c":2,"len":3,"word":"برق","clue":"يومض في العاصفة"},{"dir":"d","r":2,"c":3,"len":5,"word":"رمانة","clue":"حبّها أحمر كالمرجان"},{"dir":"d","r":2,"c":5,"len":5,"word":"صحاري","clue":"أرض الرمال"},{"dir":"d","r":6,"c":6,"len":3,"word":"ورد","clue":"أجمل الزهور"},{"dir":"d","r":0,"c":7,"len":3,"word":"حوت","clue":"أضخم سكان البحر"}]},{"mask":[".###...##","...###.#.",".#.#...#.","#...#....","###...###","....#...#",".#...#.#.",".#.###...","##...###."],"words":[{"dir":"a","r":0,"c":4,"len":3,"word":"ريش","clue":"غطاء الطير"},{"dir":"a","r":1,"c":0,"len":3,"word":"كوع","clue":"مفصل الذراع"},{"dir":"a","r":2,"c":4,"len":3,"word":"قمر","clue":"يضيء الليل"},{"dir":"a","r":3,"c":1,"len":3,"word":"خبز","clue":"قوت يومي"},{"dir":"a","r":3,"c":5,"len":4,"word":"سباح","clue":"يجيد رياضة الماء"},{"dir":"a","r":4,"c":3,"len":3,"word":"برج","clue":"بناء شاهق"},{"dir":"a","r":5,"c":0,"len":4,"word":"قلمي","clue":"خاص بالقلم"},{"dir":"a","r":5,"c":5,"len":3,"word":"دار","clue":"البيت"},{"dir":"a","r":6,"c":2,"len":3,"word":"طبق","clue":"نقدم فيه الطعام"},{"dir":"a","r":7,"c":6,"len":3,"word":"دود","clue":"زواحف صغيرة"},{"dir":"a","r":8,"c":2,"len":3,"word":"موز","clue":"فاكهة صفراء"},{"dir":"d","r":0,"c":0,"len":3,"word":"سكر","clue":"يحلي الشاي"},{"dir":"d","r":5,"c":0,"len":3,"word":"قلم","clue":"نكتب به"},{"dir":"d","r":1,"c":2,"len":3,"word":"عنب","clue":"فاكهة العناقيد"},{"dir":"d","r":5,"c":2,"len":4,"word":"مطعم","clue":"يقدم الوجبات"},{"dir":"d","r":3,"c":3,"len":4,"word":"زبيب","clue":"عنب مجفف"},{"dir":"d","r":2,"c":5,"len":4,"word":"مسجد","clue":"بيت من بيوت الله"},{"dir":"d","r":0,"c":6,"len":4,"word":"شارب","clue":"فوق الشفة"},{"dir":"d","r":5,"c":6,"len":3,"word":"اسد","clue":"ملك الغابة"},{"dir":"d","r":1,"c":8,"len":3,"word":"رمح","clue":"سلاح طويل"},{"dir":"d","r":6,"c":8,"len":3,"word":"عدس","clue":"شوربة شهيرة"}]},{"mask":["...####.#","#.#.#.#.#","#...#....","###....#.",".#.#.#.#.",".#....###","....#...#","#.#.#.#.#","#.####..."],"words":[{"dir":"a","r":0,"c":0,"len":3,"word":"قدر","clue":"نطبخ فيه"},{"dir":"a","r":2,"c":1,"len":3,"word":"عيد","clue":"يوم الفرح"},{"dir":"a","r":2,"c":5,"len":4,"word":"طريق","clue":"يوصل بين مكانين"},{"dir":"a","r":3,"c":3,"len":4,"word":"فهرس","clue":"قائمة المحتويات"},{"dir":"a","r":5,"c":2,"len":4,"word":"معلم","clue":"يدرس في المدرسة"},{"dir":"a","r":6,"c":0,"len":4,"word":"مدرس","clue":"يعلم التلاميذ"},{"dir":"a","r":6,"c":5,"len":3,"word":"طير","clue":"يحلق في السماء"},{"dir":"a","r":8,"c":6,"len":3,"word":"جسر","clue":"يعبر النهر"},{"dir":"d","r":4,"c":0,"len":3,"word":"لحم","clue":"نأكله مشوياً"},{"dir":"d","r":0,"c":1,"len":3,"word":"درع","clue":"واقية المحارب"},{"dir":"d","r":6,"c":1,"len":3,"word":"دلة","clue":"نصب بها القهوة"},{"dir":"d","r":4,"c":2,"len":3,"word":"تمر","clue":"ثمر النخل"},{"dir":"d","r":1,"c":3,"len":3,"word":"هدف","clue":"غاية السعي"},{"dir":"d","r":5,"c":3,"len":3,"word":"عسل","clue":"صنيع النحل"},{"dir":"d","r":3,"c":4,"len":3,"word":"هيل","clue":"بهار القهوة"},{"dir":"d","r":1,"c":5,"len":3,"word":"سطر","clue":"سطر من كتاب"},{"dir":"d","r":5,"c":5,"len":3,"word":"مطر","clue":"ينزل من السحاب"},{"dir":"d","r":2,"c":6,"len":3,"word":"رسغ","clue":"مفصل اليد"},{"dir":"d","r":0,"c":7,"len":3,"word":"شاي","clue":"مشروب ساخن"},{"dir":"d","r":6,"c":7,"len":3,"word":"راس","clue":"أعلى الجسم"},{"dir":"d","r":2,"c":8,"len":3,"word":"قدم","clue":"نقف عليها"}]},{"mask":["...##...#","##.###.#.","...###...","#......#.","#.##.##.#",".#......#","...###...",".#.###.##","#...##..."],"words":[{"dir":"a","r":0,"c":0,"len":3,"word":"حرف","clue":"وحدة الكلمة"},{"dir":"a","r":0,"c":5,"len":3,"word":"بطة","clue":"طائر مائي"},{"dir":"a","r":2,"c":0,"len":3,"word":"حجر","clue":"قطعة صخر"},{"dir":"a","r":2,"c":6,"len":3,"word":"يوم","clue":"أربع وعشرون ساعة"},{"dir":"a","r":3,"c":1,"len":6,"word":"بساتين","clue":"حدائق المثمرات"},{"dir":"a","r":5,"c":2,"len":6,"word":"موسيقي","clue":"فن الألحان"},{"dir":"a","r":6,"c":0,"len":3,"word":"ورد","clue":"أجمل الزهور"},{"dir":"a","r":6,"c":6,"len":3,"word":"فرن","clue":"نخبز فيه"},{"dir":"a","r":8,"c":1,"len":3,"word":"عسل","clue":"صنيع النحل"},{"dir":"a","r":8,"c":6,"len":3,"word":"زيت","clue":"من الزيتون"},{"dir":"d","r":5,"c":0,"len":3,"word":"سور","clue":"يحيط بالمدينة"},{"dir":"d","r":2,"c":1,"len":3,"word":"جبل","clue":"مرتفع صخري"},{"dir":"d","r":0,"c":2,"len":4,"word":"فهرس","clue":"قائمة المحتويات"},{"dir":"d","r":5,"c":2,"len":4,"word":"مدرس","clue":"يعلم التلاميذ"},{"dir":"d","r":3,"c":4,"len":3,"word":"ترس","clue":"يقي الضربات"},{"dir":"d","r":0,"c":6,"len":4,"word":"طحين","clue":"مسحوق القمح"},{"dir":"d","r":5,"c":6,"len":4,"word":"قفاز","clue":"يدفئ اليدين"},{"dir":"d","r":4,"c":7,"len":3,"word":"خير","clue":"عكس الشر"},{"dir":"d","r":1,"c":8,"len":3,"word":"قمر","clue":"يضيء الليل"}]},{"mask":["#.#.#####","#...##...","#......##","...#.#...","####.####","...#.#...","##......#","...##...#","#####.#.#"],"words":[{"dir":"a","r":1,"c":1,"len":3,"word":"لحن","clue":"نغم الأغنية"},{"dir":"a","r":1,"c":6,"len":3,"word":"كوب","clue":"نشرب فيه"},{"dir":"a","r":2,"c":1,"len":6,"word":"مقبلات","clue":"تسبق الوجبة"},{"dir":"a","r":3,"c":0,"len":3,"word":"فيل","clue":"صاحب الخرطوم"},{"dir":"a","r":3,"c":6,"len":3,"word":"فضة","clue":"معدن أبيض ثمين"},{"dir":"a","r":5,"c":0,"len":3,"word":"خوخ","clue":"فاكهة ذات نواة"},{"dir":"a","r":5,"c":6,"len":3,"word":"نفق","clue":"ممر تحت الأرض"},{"dir":"a","r":6,"c":2,"len":6,"word":"احتفال","clue":"مناسبة سعيدة"},{"dir":"a","r":7,"c":0,"len":3,"word":"رمل","clue":"حبيبات الشاطئ"},{"dir":"a","r":7,"c":5,"len":3,"word":"حرف","clue":"وحدة الكلمة"},{"dir":"d","r":0,"c":1,"len":4,"word":"قلمي","clue":"خاص بالقلم"},{"dir":"d","r":1,"c":2,"len":3,"word":"حقل","clue":"أرض الزرع"},{"dir":"d","r":5,"c":2,"len":3,"word":"خال","clue":"أخو الأم"},{"dir":"d","r":0,"c":3,"len":3,"word":"عنب","clue":"فاكهة العناقيد"},{"dir":"d","r":2,"c":4,"len":5,"word":"لحظات","clue":"أقصر وحدات الزمن إحساساً"},{"dir":"d","r":6,"c":5,"len":3,"word":"فحم","clue":"أسود يشتعل"},{"dir":"d","r":1,"c":6,"len":3,"word":"كتف","clue":"أعلى الذراع"},{"dir":"d","r":5,"c":6,"len":3,"word":"نار","clue":"تشتعل وتحرق"},{"dir":"d","r":5,"c":7,"len":4,"word":"فلفل","clue":"حار أو حلو"}]},{"mask":["...#.#.##",".#.#.#.##",".#.#....#","##....#.#","#.#.#.#.#","#.#....##","#....#.#.","##.#.#.#.","##.#.#..."],"words":[{"dir":"a","r":0,"c":0,"len":3,"word":"قدم","clue":"نقف عليها"},{"dir":"a","r":2,"c":4,"len":4,"word":"نجار","clue":"حرفي الخشب"},{"dir":"a","r":3,"c":2,"len":4,"word":"سكين","clue":"نقطع بها"},{"dir":"a","r":5,"c":3,"len":4,"word":"سرير","clue":"ننام عليه"},{"dir":"a","r":6,"c":1,"len":4,"word":"طريق","clue":"يوصل بين مكانين"},{"dir":"a","r":8,"c":6,"len":3,"word":"دار","clue":"البيت"},{"dir":"d","r":0,"c":0,"len":3,"word":"قلب","clue":"عضو النبض والحب"},{"dir":"d","r":4,"c":1,"len":3,"word":"قرط","clue":"حلية الأذن"},{"dir":"d","r":0,"c":2,"len":4,"word":"مدرس","clue":"يعلم التلاميذ"},{"dir":"d","r":6,"c":2,"len":3,"word":"رمح","clue":"سلاح طويل"},{"dir":"d","r":3,"c":3,"len":4,"word":"كرسي","clue":"نجلس عليه"},{"dir":"d","r":0,"c":4,"len":4,"word":"مغني","clue":"يؤدي الأغاني"},{"dir":"d","r":5,"c":4,"len":4,"word":"رقبة","clue":"تحمل الرأس"},{"dir":"d","r":2,"c":5,"len":4,"word":"جندي","clue":"يدافع عن الوطن"},{"dir":"d","r":0,"c":6,"len":3,"word":"هوا","clue":"نتنفسه"},{"dir":"d","r":5,"c":6,"len":4,"word":"رماد","clue":"بقايا الاحتراق"},{"dir":"d","r":2,"c":7,"len":3,"word":"رجل","clue":"نمشي بها"},{"dir":"d","r":6,"c":8,"len":3,"word":"سطر","clue":"سطر من كتاب"}]},{"mask":["...##.#.#","##.##...#","...#.....","##...#.#.",".###.###.",".#.#...##",".....#...","#...##.##","#.#.##..."],"words":[{"dir":"a","r":0,"c":0,"len":3,"word":"ثوب","clue":"نلبسه"},{"dir":"a","r":1,"c":5,"len":3,"word":"حبل","clue":"نربط به"},{"dir":"a","r":2,"c":0,"len":3,"word":"صيد","clue":"اصطياد السمك"},{"dir":"a","r":2,"c":4,"len":5,"word":"سناجب","clue":"تحب البندق والجوز"},{"dir":"a","r":3,"c":2,"len":3,"word":"قطن","clue":"نبات أبيض ناعم"},{"dir":"a","r":5,"c":4,"len":3,"word":"رعد","clue":"صوت العاصفة"},{"dir":"a","r":6,"c":0,"len":5,"word":"سباحة","clue":"رياضة الماء"},{"dir":"a","r":6,"c":6,"len":3,"word":"خوف","clue":"عكس الشجاعة"},{"dir":"a","r":7,"c":1,"len":3,"word":"نجم","clue":"يلمع في السماء"},{"dir":"a","r":8,"c":6,"len":3,"word":"نهر","clue":"ماء عذب جارٍ"},{"dir":"d","r":4,"c":0,"len":3,"word":"قوس","clue":"ترمي السهام"},{"dir":"d","r":6,"c":1,"len":3,"word":"بنت","clue":"الابنة"},{"dir":"d","r":0,"c":2,"len":4,"word":"بندق","clue":"يفضله السنجاب"},{"dir":"d","r":5,"c":2,"len":3,"word":"تاج","clue":"على رأس الملك"},{"dir":"d","r":6,"c":3,"len":3,"word":"حمص","clue":"بقولية المقبلات"},{"dir":"d","r":2,"c":4,"len":5,"word":"سنارة","clue":"خيط وخطاف"},{"dir":"d","r":0,"c":5,"len":3,"word":"صحن","clue":"نأكل فيه"},{"dir":"d","r":1,"c":6,"len":3,"word":"باب","clue":"مدخل البيت"},{"dir":"d","r":5,"c":6,"len":4,"word":"دخان","clue":"يتصاعد من النار"},{"dir":"d","r":0,"c":7,"len":3,"word":"ثلج","clue":"أبيض بارد"},{"dir":"d","r":2,"c":8,"len":3,"word":"بصل","clue":"يبكي من قطعه"}]},{"mask":["#...##...","###...#.#","....##...",".#.#...##",".#.#.#.#.","##...#.#.","...##....","#.#...###","...##...#"],"words":[{"dir":"a","r":0,"c":1,"len":3,"word":"كلب","clue":"صديق وفيّ"},{"dir":"a","r":0,"c":6,"len":3,"word":"طعم","clue":"يجذب السمك"},{"dir":"a","r":1,"c":3,"len":3,"word":"حبر","clue":"سائل الكتابة"},{"dir":"a","r":2,"c":0,"len":4,"word":"تيار","clue":"جريان الماء"},{"dir":"a","r":2,"c":6,"len":3,"word":"همس","clue":"كلام خافت"},{"dir":"a","r":3,"c":4,"len":3,"word":"قرد","clue":"يتشبه بالبشر"},{"dir":"a","r":5,"c":2,"len":3,"word":"شهر","clue":"من شهور السنة"},{"dir":"a","r":6,"c":0,"len":3,"word":"لغة","clue":"وسيلة التواصل"},{"dir":"a","r":6,"c":5,"len":4,"word":"حاجب","clue":"فوق العين"},{"dir":"a","r":7,"c":3,"len":3,"word":"نحل","clue":"يصنع العسل"},{"dir":"a","r":8,"c":0,"len":3,"word":"نمر","clue":"مفترس مخطط"},{"dir":"a","r":8,"c":5,"len":3,"word":"ماء","clue":"نشربه"},{"dir":"d","r":2,"c":0,"len":3,"word":"تين","clue":"فاكهة بنفسجية"},{"dir":"d","r":6,"c":1,"len":3,"word":"غنم","clue":"مصدر الصوف"},{"dir":"d","r":2,"c":2,"len":5,"word":"اقمشة","clue":"تصنع منها الملابس"},{"dir":"d","r":0,"c":3,"len":3,"word":"بحر","clue":"ماء واسع مالح"},{"dir":"d","r":3,"c":4,"len":3,"word":"قصر","clue":"بيت الملوك"},{"dir":"d","r":6,"c":5,"len":3,"word":"حلم","clue":"نراه في النوم"},{"dir":"d","r":2,"c":6,"len":5,"word":"هدايا","clue":"تقدمها في المناسبات"},{"dir":"d","r":0,"c":7,"len":3,"word":"عظم","clue":"هيكل الجسم"},{"dir":"d","r":4,"c":8,"len":3,"word":"جيب","clue":"في البنطال"}]}];
+var W = 9, H = 9;
+function normL(ch) { return ch.replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ؤ/g, 'و').replace(/ئ/g, 'ي'); }
+
+// ---------- day ----------
+var KWT = 3 * 3600e3;
+function todayIndex() { return Math.floor((Date.now() + KWT) / 86400e3); }
+
+// ---------- state ----------
+var mode = 'daily'; // daily | practice
+var pIdx = 0, puzzle = null;
+var sol = {};        // "r,c" -> correct letter
+var slots = [];      // {dir,r,c,len,word,clue,num}
+var cellSlots = {};  // "r,c" -> {a:idx, d:idx}
+var cellNum = {};
+var entries = {}, hintsLeft = 3, status = 'playing'; // playing | won
+var sel = null, dir = 'a';
+var whiteCount = 0;
+
+function key(r, c) { return r + ',' + c; }
+
+function loadPuzzle(idx) {
+    pIdx = idx;
+    puzzle = PUZZLES[idx];
+    sol = {}; slots = []; cellSlots = {}; cellNum = {};
+    puzzle.words.forEach(function (w) {
+        slots.push({ dir: w.dir, r: w.r, c: w.c, len: w.len, word: w.word, clue: w.clue, num: 0 });
+    });
+    var n = 0;
+    for (var r = 0; r < H; r++) {
+        for (var c = 0; c < W; c++) {
+            var starts = [];
+            slots.forEach(function (s) { if (s.r === r && s.c === c) starts.push(s); });
+            if (starts.length) { n++; cellNum[key(r, c)] = n; starts.forEach(function (s) { s.num = n; }); }
+        }
+    }
+    slots.forEach(function (s, i) {
+        for (var k = 0; k < s.len; k++) {
+            var rr = s.r + (s.dir === 'd' ? k : 0), cc = s.c + (s.dir === 'a' ? k : 0);
+            sol[key(rr, cc)] = s.word[k];
+            var cs = cellSlots[key(rr, cc)] || (cellSlots[key(rr, cc)] = {});
+            cs[s.dir] = i;
+        }
+    });
+    whiteCount = Object.keys(sol).length;
+}
+
+// ---------- grid render ----------
+function buildGrid() {
+    var g = document.getElementById('xgrid');
+    g.innerHTML = '';
+    for (var r = 0; r < H; r++) {
+        for (var c = 0; c < W; c++) {
+            var d = document.createElement('div');
+            if (puzzle.mask[r][c] === '#') {
+                d.className = 'xcell black';
+            } else {
+                (function (rr, cc) {
+                    d.className = 'xcell';
+                    d.id = 'x' + rr + '-' + cc;
+                    if (cellNum[key(rr, cc)]) {
+                        var sp = document.createElement('span');
+                        sp.className = 'num';
+                        sp.textContent = cellNum[key(rr, cc)];
+                        d.appendChild(sp);
+                    }
+                    var L = document.createElement('span');
+                    L.className = 'let';
+                    d.appendChild(L);
+                    d.addEventListener('click', function () { tapCell(rr, cc); });
+                })(r, c);
+            }
+            g.appendChild(d);
+        }
+    }
+}
+function cellEl(r, c) { return document.getElementById('x' + r + '-' + c); }
+function refreshCell(r, c) {
+    var el = cellEl(r, c);
+    if (!el) return;
+    el.querySelector('.let').textContent = entries[key(r, c)] || '';
+}
+function refreshAllCells() {
+    for (var k in sol) {
+        var p = k.split(',');
+        refreshCell(+p[0], +p[1]);
+    }
+}
+
+// ---------- selection ----------
+function activeSlot() {
+    if (!sel) return null;
+    var cs = cellSlots[key(sel.r, sel.c)];
+    if (!cs) return null;
+    if (cs[dir] == null) dir = cs.a != null ? 'a' : 'd';
+    return slots[cs[dir]];
+}
+function refreshHighlights() {
+    var all = document.querySelectorAll('.xcell');
+    all.forEach(function (e) { e.classList.remove('sel', 'word'); });
+    var s = activeSlot();
+    if (!s) return;
+    for (var k = 0; k < s.len; k++) {
+        var rr = s.r + (s.dir === 'd' ? k : 0), cc = s.c + (s.dir === 'a' ? k : 0);
+        var el = cellEl(rr, cc);
+        if (el) el.classList.add('word');
+    }
+    var se = cellEl(sel.r, sel.c);
+    if (se) se.classList.add('sel');
+}
+function tapCell(r, c) {
+    if (status !== 'playing') return;
+    if (sel && sel.r === r && sel.c === c) {
+        var cs = cellSlots[key(r, c)];
+        var other = dir === 'a' ? 'd' : 'a';
+        if (cs[other] != null) dir = other;
+    } else {
+        sel = { r: r, c: c };
+        var cs2 = cellSlots[key(r, c)];
+        if (cs2[dir] == null) dir = cs2.a != null ? 'a' : 'd';
+    }
+    sKey();
+    refreshHighlights();
+    renderClueBar();
+}
+function renderClueBar() {
+    var s = activeSlot();
+    var t = document.getElementById('clueTxt');
+    if (!s) { t.textContent = 'اختر خانة من الشبكة'; }
+    else {
+        t.innerHTML = '<b>' + s.num + ' ' + (s.dir === 'a' ? 'أفقي' : 'عمودي') + ':</b> ' + s.clue + ' (' + s.len + ' حروف)';
+    }
+    document.getElementById('btnDir').textContent = dir === 'a' ? '⇄ أفقي' : '⇄ عمودي';
+    markActiveClue();
+}
+document.getElementById('btnDir').addEventListener('click', function () {
+    if (!sel) return;
+    var cs = cellSlots[key(sel.r, sel.c)];
+    var other = dir === 'a' ? 'd' : 'a';
+    if (cs[other] != null) { dir = other; sKey(); refreshHighlights(); renderClueBar(); }
+});
+
+// ---------- keyboard ----------
+var KB_ROWS = [
+    ['ض', 'ص', 'ث', 'ق', 'ف', 'غ', 'ع', 'ه', 'خ', 'ح', 'ج', 'د'],
+    ['ش', 'س', 'ي', 'ب', 'ل', 'ا', 'ت', 'ن', 'م', 'ك', 'ط'],
+    ['ئ', 'ء', 'ؤ', 'ر', 'ى', 'ة', 'و', 'ز', 'ظ', '⌫']
+];
+function buildKbd() {
+    var kbd = document.getElementById('kbd');
+    kbd.innerHTML = '';
+    KB_ROWS.forEach(function (row) {
+        var r = document.createElement('div');
+        r.className = 'krow';
+        row.forEach(function (k) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'key' + (k === '⌫' ? ' wide' : '');
+            b.textContent = k;
+            b.id = 'k-' + k;
+            b.addEventListener('click', function () { press(k); });
+            r.appendChild(b);
+        });
+        kbd.appendChild(r);
+    });
+}
+
+// ---------- entry ----------
+function press(k) {
+    if (status !== 'playing') return;
+    if (k === '⌫') { backspace(); return; }
+    if (!sel) { toast('اختر خانة أولاً'); return; }
+    audio();
+    sKey();
+    entries[key(sel.r, sel.c)] = normL(k);
+    refreshCell(sel.r, sel.c);
+    var s = activeSlot();
+    if (s) {
+        var pos = s.dir === 'a' ? sel.c - s.c : sel.r - s.r;
+        if (pos + 1 < s.len) {
+            if (s.dir === 'a') sel = { r: sel.r, c: sel.c + 1 };
+            else sel = { r: sel.r + 1, c: sel.c };
+        }
+    }
+    afterChange();
+}
+function backspace() {
+    if (status !== 'playing' || !sel) return;
+    sKey();
+    if (entries[key(sel.r, sel.c)]) {
+        delete entries[key(sel.r, sel.c)];
+        refreshCell(sel.r, sel.c);
+    } else {
+        var s = activeSlot();
+        if (s) {
+            var pos = s.dir === 'a' ? sel.c - s.c : sel.r - s.r;
+            if (pos > 0) {
+                if (s.dir === 'a') sel = { r: sel.r, c: sel.c - 1 };
+                else sel = { r: sel.r - 1, c: sel.c };
+                delete entries[key(sel.r, sel.c)];
+                refreshCell(sel.r, sel.c);
+            }
+        }
+    }
+    afterChange();
+}
+window.addEventListener('keydown', function (e) {
+    if (e.key === 'Backspace') { backspace(); e.preventDefault(); return; }
+    if (/^[ء-غف-ي]$/.test(e.key)) press(e.key);
+});
+
+// ---------- clue lists ----------
+function buildClues() {
+    ['listA', 'listD'].forEach(function (id) {
+        var el = document.getElementById(id);
+        el.querySelectorAll('.ci').forEach(function (n) { n.remove(); });
+    });
+    slots.forEach(function (s, i) {
+        var d = document.createElement('div');
+        d.className = 'ci';
+        d.id = 'ci' + i;
+        d.textContent = s.num + '. ' + s.clue;
+        d.addEventListener('click', function () {
+            if (status !== 'playing') return;
+            sel = { r: s.r, c: s.c }; dir = s.dir;
+            sKey();
+            refreshHighlights();
+            renderClueBar();
+        });
+        document.getElementById(s.dir === 'a' ? 'listA' : 'listD').appendChild(d);
+    });
+}
+function wordDone(s) {
+    for (var k = 0; k < s.len; k++) {
+        var rr = s.r + (s.dir === 'd' ? k : 0), cc = s.c + (s.dir === 'a' ? k : 0);
+        if (entries[key(rr, cc)] !== sol[key(rr, cc)]) return false;
+    }
+    return true;
+}
+function refreshClueStrikes() {
+    slots.forEach(function (s, i) {
+        var el = document.getElementById('ci' + i);
+        if (el) el.classList.toggle('done', wordDone(s));
+    });
+}
+function markActiveClue() {
+    slots.forEach(function (s, i) {
+        var el = document.getElementById('ci' + i);
+        if (el) el.classList.remove('act');
+    });
+    var s = activeSlot();
+    if (s) {
+        var el = document.getElementById('ci' + slots.indexOf(s));
+        if (el) el.classList.add('act');
+    }
+}
+
+// ---------- persistence ----------
+function saveProg() {
+    lsSet('desert-xword.p' + pIdx, { e: entries, h: hintsLeft, done: status === 'won' });
+    if (mode === 'daily') lsSet('desert-xword.daily.v1', { day: todayIndex(), status: status });
+}
+
+// ---------- completion ----------
+function isComplete() {
+    for (var k in sol) if (!entries[k]) return false;
+    return true;
+}
+function isCorrect() {
+    for (var k in sol) if (entries[k] !== sol[k]) return false;
+    return true;
+}
+function afterChange() {
+    refreshClueStrikes();
+    refreshHighlights();
+    renderClueBar();
+    saveProg();
+    if (isComplete()) {
+        if (isCorrect()) win();
+        else toast('اكتملت الشبكة لكن فيها أخطاء، اضغط ✓ تحقق');
+    }
+}
+function doCheck() {
+    if (status !== 'playing') return;
+    if (!isComplete()) {
+        var wrongOpen = 0;
+        for (var k in sol) if (entries[k] && entries[k] !== sol[k]) wrongOpen++;
+        sCheck();
+        if (wrongOpen) { flashWrong(); toast('عندك ' + wrongOpen + ' حروف خاطئة'); }
+        else toast('ما في أخطاء حتى الآن، أكمل!');
+        return;
+    }
+    if (isCorrect()) { win(); return; }
+    sBad();
+    flashWrong();
+    toast('في حروف خاطئة باللون الأحمر');
+}
+function flashWrong() {
+    var badEls = [];
+    for (var k in sol) {
+        if (entries[k] && entries[k] !== sol[k]) {
+            var p = k.split(',');
+            var el = cellEl(+p[0], +p[1]);
+            if (el) { el.classList.add('bad'); badEls.push(el); }
+        }
+    }
+    setTimeout(function () { badEls.forEach(function (el) { el.classList.remove('bad'); }); }, 1500);
+}
+function win() {
+    status = 'won';
+    if (mode === 'daily') {
+        stats.played++; stats.won++; stats.streak++;
+        if (stats.streak > stats.max) stats.max = stats.streak;
+        lsSet('desert-xword.stats.v1', stats);
+    }
+    sWin();
+    saveProg();
+    syncStats();
+    refreshClueStrikes();
+    setTimeout(function () { endOverlay(); }, 700);
+}
+function syncHint() {
+    var b = document.getElementById('btnHint');
+    b.textContent = '💡 حرف (' + hintsLeft + ')';
+    b.disabled = status !== 'playing' || hintsLeft <= 0;
+}
+function useHint() {
+    if (status !== 'playing' || hintsLeft <= 0) return;
+    var s = activeSlot();
+    var target = null;
+    if (s) {
+        for (var k = 0; k < s.len; k++) {
+            var rr = s.r + (s.dir === 'd' ? k : 0), cc = s.c + (s.dir === 'a' ? k : 0);
+            if (entries[key(rr, cc)] !== sol[key(rr, cc)]) { target = { r: rr, c: cc }; break; }
+        }
+    }
+    if (!target) {
+        for (var kk in sol) { if (entries[kk] !== sol[kk]) { var p = kk.split(','); target = { r: +p[0], c: +p[1] }; break; } }
+    }
+    if (!target) return;
+    hintsLeft--;
+    sCheck();
+    sel = { r: target.r, c: target.c };
+    entries[key(target.r, target.c)] = sol[key(target.r, target.c)];
+    refreshCell(target.r, target.c);
+    toast('انكشف حرف');
+    syncHint();
+    afterChange();
+}
+document.getElementById('btnHint').addEventListener('click', useHint);
+document.getElementById('btnCheck').addEventListener('click', doCheck);
+
+// ---------- end overlay / countdown ----------
+var cdTimer = null;
+function msToNextDay() {
+    var t = Date.now() + KWT;
+    return (Math.floor(t / 86400e3) + 1) * 86400e3 - KWT - Date.now();
+}
+function tickCountdown() {
+    var ms = msToNextDay(), s = Math.floor(ms / 1000);
+    var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
+    document.getElementById('endCount').textContent =
+        String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+}
+function endOverlay() {
+    if (mode === 'daily') {
+        document.getElementById('endTitle').textContent = '🎉 أحسنت!';
+        document.getElementById('endDetail').textContent =
+            'حللت لغز اليوم #' + (todayIndex() % PUZZLES.length + 1) + ' كاملاً.';
+        document.getElementById('cdLabel').style.display = '';
+        document.getElementById('endCount').style.display = '';
+        tickCountdown();
+        clearInterval(cdTimer);
+        cdTimer = setInterval(tickCountdown, 1000);
+        document.getElementById('btnNext').textContent = '🎲 لغز تدريبي';
+    } else {
+        document.getElementById('endTitle').textContent = '🎉 أحسنت!';
+        document.getElementById('endDetail').textContent = 'حللت هذا اللغز! جرب لغز اليوم لتحافظ على سلسلتك.';
+        document.getElementById('cdLabel').style.display = 'none';
+        document.getElementById('endCount').style.display = 'none';
+        document.getElementById('btnNext').textContent = '📅 لغز اليوم';
+    }
+    document.getElementById('ovEnd').style.display = 'flex';
+}
+document.getElementById('btnClose').addEventListener('click', function () {
+    sKey();
+    document.getElementById('ovEnd').style.display = 'none';
+});
+document.getElementById('btnNext').addEventListener('click', function () {
+    if (mode === 'daily') startPractice();
+    else startDaily();
+});
+
+// ---------- modes ----------
+function applyProg(restoreDone) {
+    var prog = lsGet('desert-xword.p' + pIdx, null);
+    entries = {}; hintsLeft = 3;
+    if (prog && (restoreDone || !prog.done)) {
+        entries = prog.e || {};
+        if (typeof prog.h === 'number') hintsLeft = prog.h;
+    }
+}
+function startDaily() {
+    mode = 'daily';
+    var idx = todayIndex() % PUZZLES.length;
+    loadPuzzle(idx);
+    var meta = lsGet('desert-xword.daily.v1', null);
+    var wonToday = !!(meta && meta.day === todayIndex() && meta.status === 'won');
+    applyProg(wonToday);
+    status = wonToday ? 'won' : 'playing';
+    sel = null; dir = 'a';
+    document.getElementById('ovEnd').style.display = 'none';
+    clearInterval(cdTimer);
+    buildGrid(); buildKbd(); buildClues();
+    refreshAllCells();
+    refreshClueStrikes();
+    renderClueBar();
+    syncHint();
+    syncStats();
+    if (status === 'won') setTimeout(endOverlay, 500);
+}
+function startPractice() {
+    sKey();
+    mode = 'practice';
+    var idx;
+    do { idx = (Math.random() * PUZZLES.length) | 0; } while (idx === pIdx && PUZZLES.length > 1);
+    loadPuzzle(idx);
+    applyProg(false);
+    status = 'playing';
+    sel = null; dir = 'a';
+    document.getElementById('ovEnd').style.display = 'none';
+    clearInterval(cdTimer);
+    buildGrid(); buildKbd(); buildClues();
+    refreshAllCells();
+    refreshClueStrikes();
+    renderClueBar();
+    syncHint();
+    syncStats();
+}
+document.getElementById('btnPractice').addEventListener('click', function () {
+    if (mode === 'practice') { startDaily(); sKey(); }
+    else startPractice();
+});
+function syncStats() {
+    document.getElementById('uiPlayed').textContent = String(stats.played);
+    document.getElementById('uiWon').textContent = String(stats.won);
+    document.getElementById('uiStreak').textContent = String(stats.streak);
+    document.getElementById('uiMax').textContent = String(stats.max);
+    document.getElementById('modeLine').textContent = mode === 'practice' ? '🎲 لغز تدريبي — لا يؤثر على إحصائياتك' : '';
+    document.getElementById('btnPractice').textContent = mode === 'practice' ? '📅 لغز اليوم' : '🎲 لغز آخر';
+}
+
+// ---------- mute / fullscreen ----------
+function syncMute() { document.getElementById('btnMute').textContent = muted ? '🔇 الصوت' : '🔊 الصوت'; }
+document.getElementById('btnMute').addEventListener('click', function () {
+    muted = !muted;
+    lsSet('desert-xword.muted.v1', muted);
+    syncMute();
+    if (!muted) sKey();
+});
+function isFs() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+function pseudoFs() { return document.body.classList.contains('fs-pseudo'); }
+function syncFs() {
+    document.getElementById('btnFs').textContent = (isFs() || pseudoFs()) ? '✕ خروج' : '⛶ ملء الشاشة';
+}
+function pseudoSet(on) { document.body.classList.toggle('fs-pseudo', on); syncFs(); }
+function toggleFs() {
+    sKey();
+    if (pseudoFs()) { pseudoSet(false); return; }
+    if (isFs()) {
+        try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) { /* ignore */ }
+        return;
+    }
+    var card = document.querySelector('.card');
+    var ok = false;
+    try {
+        if (card.requestFullscreen) {
+            var r = card.requestFullscreen();
+            ok = true;
+            if (r && r.catch) r.catch(function () { pseudoSet(true); });
+        } else if (card.webkitRequestFullscreen) { card.webkitRequestFullscreen(); ok = true; }
+    } catch (e) { ok = false; }
+    if (!ok) pseudoSet(true);
+    else setTimeout(function () { if (!isFs() && !pseudoFs()) pseudoSet(true); }, 600);
+    syncFs();
+}
+document.getElementById('btnFs').addEventListener('click', toggleFs);
+document.addEventListener('fullscreenchange', syncFs);
+document.addEventListener('webkitfullscreenchange', syncFs);
+
+// ---------- toast ----------
+function toast(msg) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('on');
+    setTimeout(function () { t.classList.remove('on'); }, 1700);
+}
+
+// test hook (harmless): deterministic checks for automated play-testing
+window.__xTest = {
+    state: function () { return { mode: mode, status: status, pIdx: pIdx, hintsLeft: hintsLeft, filled: Object.keys(entries).length, total: whiteCount, puzzles: PUZZLES.length }; },
+    words: function () { return slots.map(function (s) { return { dir: s.dir, num: s.num, word: s.word }; }); },
+    select: function (r, c) { tapCell(r, c); },
+    press: function (l) { press(l); },
+    back: function () { backspace(); },
+    check: function () { doCheck(); },
+    hint: function () { useHint(); },
+    slotStart: function (i) { return { r: slots[i].r, c: slots[i].c, dir: slots[i].dir }; },
+    fillAll: function (correct) {
+        for (var k in sol) entries[k] = correct ? sol[k] : 'ب';
+        refreshAllCells(); afterChange();
+    },
+    practice: function () { startPractice(); },
+    entryAt: function (r, c) { return entries[key(r, c)] || ''; }
+};
+
+startDaily();
+syncMute();
+syncFs();
+
+})();
+</script>
+</body>
+</html>
